@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P Diagnostic - Find the Issue</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0b0f14;
+      color: #e6eef7;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #4ecdc4;
+    }
+
+    button {
+      background: #4ecdc4;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px 10px 10px 0;
+    }
+
+    .video-container {
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 15px 0;
+      aspect-ratio: 16/9;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .log {
+      background: #000;
+      border: 1px solid #223040;
+      border-radius: 6px;
+      padding: 15px;
+      max-height: 600px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      margin-top: 15px;
+    }
+
+    .log-entry {
+      padding: 2px 0;
+      border-bottom: 1px solid #111;
+    }
+
+    .log-time { color: #666; margin-right: 10px; }
+    .log-info { color: #4ecdc4; }
+    .log-warn { color: #ffa600; }
+    .log-error { color: #ff6b6b; }
+    .log-debug { color: #9b59b6; }
+    .log-success { color: #4ade80; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 P2P Diagnostic - Trace Every Step</h1>
+    
+    <button onclick="playStream()">▶️ Start Diagnostic Test</button>
+    <button onclick="stopStream()">⏹️ Stop</button>
+
+    <div class="video-container">
+      <video id="video" controls playsinline></video>
+    </div>
+
+    <div class="log" id="log"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+  
+  <script type="importmap">
+  {
+    "imports": {
+      "p2p-media-loader-core": "./lib/p2p-media-loader-core.min.js",
+      "p2p-media-loader-hlsjs": "./lib/p2p-media-loader-hlsjs.min.js"
+    }
+  }
+  </script>
+  
+  <script type="module">
+    import { HlsJsP2PEngine } from 'p2p-media-loader-hlsjs';
+
+    let hls = null;
+    let p2pEngine = null;
+
+    function log(message, type = 'info') {
+      const now = new Date();
+      const time = now.toLocaleTimeString() + '.' + now.getMilliseconds().toString().padStart(3, '0');
+      
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-time">${time}</span><span>${message}</span>`;
+      
+      const logPanel = document.getElementById('log');
+      logPanel.appendChild(entry);
+      logPanel.scrollTop = logPanel.scrollHeight;
+      
+      console.log(`[${type.toUpperCase()}] ${time}:`, message);
+    }
+
+    window.playStream = function() {
+      const url = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+      
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      log('🔍 DIAGNOSTIC MODE - Tracing P2P setup step-by-step', 'info');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      
+      const video = document.getElementById('video');
+
+      if (!Hls.isSupported()) {
+        log('❌ HLS.js not supported', 'error');
+        return;
+      }
+
+      if (typeof HlsJsP2PEngine === 'undefined') {
+        log('❌ HlsJsP2PEngine not loaded', 'error');
+        return;
+      }
+
+      log('✅ HLS.js is supported', 'success');
+      log('✅ HlsJsP2PEngine is loaded', 'success');
+
+      try {
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+        log('STEP 1: Creating P2P configuration', 'debug');
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+        
+        const p2pConfig = {
+          core: {
+            swarmId: url,
+            announceTrackers: [
+              'wss://tracker.openwebtorrent.com',
+              'wss://tracker.webtorrent.dev'
+            ]
+          },
+          onHlsJsCreated(hlsWithP2P) {
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+            log('STEP 3: onHlsJsCreated callback FIRED!', 'success');
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+            
+            // Inspect what we got
+            log('Inspecting hlsWithP2P object:', 'debug');
+            log(`  - Type: ${typeof hlsWithP2P}`, 'debug');
+            log(`  - Constructor: ${hlsWithP2P?.constructor?.name}`, 'debug');
+            log(`  - Has p2pEngine: ${!!hlsWithP2P?.p2pEngine}`, 'debug');
+            
+            // Log all properties
+            if (hlsWithP2P) {
+              const keys = Object.keys(hlsWithP2P).filter(k => k.includes('p2p') || k.includes('engine'));
+              log(`  - P2P-related keys: ${keys.join(', ') || 'NONE FOUND'}`, keys.length > 0 ? 'warn' : 'error');
+              
+              // Try to find engine in prototype chain
+              log(`  - Checking prototype...`, 'debug');
+              const proto = Object.getPrototypeOf(hlsWithP2P);
+              if (proto) {
+                const protoKeys = Object.keys(proto).filter(k => k.includes('p2p') || k.includes('engine'));
+                log(`    - Prototype P2P keys: ${protoKeys.join(', ') || 'NONE'}`, 'debug');
+              }
+            }
+            
+            // Try different ways to access the engine
+            log('Trying different access methods:', 'debug');
+            
+            // Method 1: Direct property
+            p2pEngine = hlsWithP2P.p2pEngine;
+            log(`  Method 1 (hlsWithP2P.p2pEngine): ${p2pEngine ? '✅ FOUND' : '❌ UNDEFINED'}`, p2pEngine ? 'success' : 'error');
+            
+            if (!p2pEngine) {
+              // Method 2: Via config
+              p2pEngine = hlsWithP2P.config?.p2pEngine;
+              log(`  Method 2 (hlsWithP2P.config.p2pEngine): ${p2pEngine ? '✅ FOUND' : '❌ UNDEFINED'}`, p2pEngine ? 'success' : 'error');
+            }
+            
+            if (!p2pEngine) {
+              // Method 3: Via private property
+              p2pEngine = hlsWithP2P._p2pEngine || hlsWithP2P.__p2pEngine;
+              log(`  Method 3 (private _p2pEngine): ${p2pEngine ? '✅ FOUND' : '❌ UNDEFINED'}`, p2pEngine ? 'success' : 'error');
+            }
+            
+            if (!p2pEngine) {
+              log('❌ CRITICAL: Cannot access P2P engine by any method!', 'error');
+              log('Dumping entire hlsWithP2P object to console...', 'error');
+              console.log('hlsWithP2P object:', hlsWithP2P);
+              return;
+            }
+
+            log('✅ P2P Engine accessed successfully!', 'success');
+            log(`  - Engine type: ${typeof p2pEngine}`, 'debug');
+            log(`  - Engine constructor: ${p2pEngine?.constructor?.name}`, 'debug');
+            log(`  - Has addEventListener: ${typeof p2pEngine.addEventListener}`, 'debug');
+            log(`  - Has on method: ${typeof p2pEngine.on}`, 'debug');
+            
+            // Check what methods are available
+            if (p2pEngine) {
+              const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(p2pEngine))
+                .filter(m => typeof p2pEngine[m] === 'function');
+              log(`  - Available methods (${methods.length}): ${methods.slice(0, 10).join(', ')}...`, 'debug');
+            }
+
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+            log('STEP 4: Setting up event listeners', 'debug');
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+            
+            // Try adding listeners
+            const eventsToTry = [
+              'onChunkDownloaded',
+              'onSegmentLoaded',
+              'onPeerConnect',
+              'onPeerClose',
+              'onSegmentError',
+              'onPeerError',
+              'onTrackerError'
+            ];
+            
+            eventsToTry.forEach(eventName => {
+              try {
+                log(`  Attempting: ${eventName}...`, 'debug');
+                p2pEngine.addEventListener(eventName, (...args) => {
+                  log(`🎉 EVENT FIRED: ${eventName} with ${args.length} args`, 'success');
+                  console.log(`${eventName} args:`, args);
+                  
+                  if (eventName === 'onChunkDownloaded') {
+                    const [bytesLength, downloadSource, peerId] = args;
+                    log(`    ↳ Downloaded ${bytesLength} bytes from ${downloadSource}${peerId ? ' (peer: ' + peerId + ')' : ''}`, 'info');
+                  } else if (eventName === 'onSegmentLoaded') {
+                    log(`    ↳ Segment loaded: ${JSON.stringify(args[0])}`, 'info');
+                  } else if (eventName === 'onPeerConnect') {
+                    log(`    ↳ Peer connected: ${args[0]?.peerId}`, 'info');
+                  }
+                });
+                log(`    ✅ Listener added for ${eventName}`, 'success');
+              } catch (err) {
+                log(`    ❌ Failed to add ${eventName}: ${err.message}`, 'error');
+              }
+            });
+            
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+            log('STEP 4 COMPLETE: Event listeners setup attempted', 'debug');
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+          }
+        };
+        
+        log('P2P config created:', 'debug');
+        log(`  - swarmId: ${p2pConfig.core.swarmId.substring(0, 50)}...`, 'debug');
+        log(`  - trackers: ${p2pConfig.core.announceTrackers.length}`, 'debug');
+        log(`  - onHlsJsCreated: ${typeof p2pConfig.onHlsJsCreated}`, 'debug');
+        
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+        log('STEP 2: Creating HLS.js instance with P2P config', 'debug');
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+        
+        hls = new Hls({
+          liveSyncDuration: 3,
+          liveMaxLatencyDuration: 10,
+          lowLatencyMode: true,
+          p2p: p2pConfig
+        });
+        
+        log('✅ HLS instance created', 'success');
+        log(`  - Has p2p in config: ${!!hls.config?.p2p}`, 'debug');
+        log(`  - Has p2pEngine: ${!!hls.p2pEngine}`, 'debug');
+        
+        // HLS.js events
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+          log('✅ Manifest parsed - video should start playing', 'success');
+          log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+          video.play().catch(err => {
+            log(`⚠️ Autoplay blocked: ${err.message}`, 'warn');
+          });
+        });
+        
+        hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+          const bytes = data.stats?.total || 0;
+          log(`📊 HLS.js FRAG_LOADED: Fragment ${data.frag.sn} - ${(bytes/1024).toFixed(2)}KB`, 'info');
+        });
+        
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            log(`❌ HLS Fatal Error: ${data.type} - ${data.details}`, 'error');
+          } else {
+            log(`⚠️ HLS Warning: ${data.details}`, 'warn');
+          }
+        });
+
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+        log('⏳ Waiting for onHlsJsCreated callback...', 'info');
+        log('💡 If you don\'t see "STEP 3" above, the callback never fired!', 'warn');
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+
+      } catch (err) {
+        log(`❌ EXCEPTION: ${err.message}`, 'error');
+        log(`Stack: ${err.stack}`, 'error');
+        console.error('Full error:', err);
+      }
+    };
+
+    window.stopStream = function() {
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+      
+      if (p2pEngine && p2pEngine.destroy) {
+        p2pEngine.destroy();
+        p2pEngine = null;
+      }
+      
+      const video = document.getElementById('video');
+      video.pause();
+      video.src = '';
+      
+      log('⏹️ Stream stopped', 'info');
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      log('🚀 Diagnostic tester ready!', 'info');
+      log('✅ HLS.js v1.5.13 loaded', 'info');
+      log('✅ P2P Media Loader v2.2.1 loaded', 'info');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      log('Click "Start Diagnostic Test" to trace P2P setup', 'info');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+    });
+  </script>
+</body>
+</html>
+
