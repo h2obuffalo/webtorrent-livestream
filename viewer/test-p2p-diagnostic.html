@@ -150,7 +150,17 @@
 
       try {
         log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
-        log('STEP 1: Creating P2P configuration', 'debug');
+        log('STEP 1: Injecting P2P mixin into HLS.js', 'debug');
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+        
+        log('Calling HlsJsP2PEngine.injectMixin(Hls)...', 'debug');
+        const HlsWithP2P = HlsJsP2PEngine.injectMixin(Hls);
+        log('✅ Mixin injected successfully!', 'success');
+        log(`  - Result type: ${typeof HlsWithP2P}`, 'debug');
+        log(`  - Is constructor: ${typeof HlsWithP2P === 'function'}`, 'debug');
+        
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
+        log('STEP 2: Creating P2P configuration', 'debug');
         log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
         
         const p2pConfig = {
@@ -163,7 +173,7 @@
           },
           onHlsJsCreated(hlsWithP2P) {
             log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
-            log('STEP 3: onHlsJsCreated callback FIRED!', 'success');
+            log('🎉🎉🎉 STEP 4: onHlsJsCreated callback FIRED! 🎉🎉🎉', 'success');
             log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
             
             // Inspect what we got
@@ -226,7 +236,7 @@
             }
 
             log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
-            log('STEP 4: Setting up event listeners', 'debug');
+            log('STEP 5: Setting up event listeners', 'debug');
             log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
             
             // Try adding listeners
@@ -263,7 +273,8 @@
             });
             
             log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
-            log('STEP 4 COMPLETE: Event listeners setup attempted', 'debug');
+            log('STEP 5 COMPLETE: Event listeners setup attempted', 'debug');
+            log('Now watching for P2P events... should see 🎉 when they fire!', 'success');
             log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
           }
         };
@@ -274,10 +285,10 @@
         log(`  - onHlsJsCreated: ${typeof p2pConfig.onHlsJsCreated}`, 'debug');
         
         log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
-        log('STEP 2: Creating HLS.js instance with P2P config', 'debug');
+        log('STEP 3: Creating HLS.js instance with P2P config', 'debug');
         log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'debug');
         
-        hls = new Hls({
+        hls = new HlsWithP2P({
           liveSyncDuration: 3,
           liveMaxLatencyDuration: 10,
           lowLatencyMode: true,
@@ -316,7 +327,7 @@
         
         log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
         log('⏳ Waiting for onHlsJsCreated callback...', 'info');
-        log('💡 If you don\'t see "STEP 3" above, the callback never fired!', 'warn');
+        log('💡 If you don\'t see "STEP 4: onHlsJsCreated callback FIRED!" the callback never executed!', 'warn');
         log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
 
       } catch (err) {
