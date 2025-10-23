@@ -1,0 +1,36 @@
+{
+  "name": "webtorrent-livestream",
+  "version": "1.0.0",
+  "description": "WebTorrent-based live streaming with P2P and CDN fallback",
+  "private": true,
+  "workspaces": [
+    "broadcaster",
+    "signaling",
+    "viewer"
+  ],
+  "scripts": {
+    "install:all": "npm install && cd broadcaster && npm install && cd ../signaling && npm install && cd ../viewer && npm install",
+    "dev": "concurrently \"npm run dev:broadcaster\" \"npm run dev:signaling\" \"npm run dev:viewer\"",
+    "dev:broadcaster": "cd broadcaster && npm run dev",
+    "dev:signaling": "cd signaling && npm run dev",
+    "dev:viewer": "cd viewer && npm run dev",
+    "start": "concurrently \"npm run start:broadcaster\" \"npm run start:signaling\" \"npm run start:viewer\"",
+    "start:broadcaster": "cd broadcaster && npm start",
+    "start:signaling": "cd signaling && npm start",
+    "start:viewer": "cd viewer && npm run preview",
+    "build:viewer": "cd viewer && npm run build",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "webtorrent",
+    "live-streaming",
+    "p2p",
+    "webrtc"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+

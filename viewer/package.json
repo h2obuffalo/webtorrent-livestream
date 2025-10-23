@@ -1,0 +1,29 @@
+{
+  "name": "webtorrent-livestream-viewer",
+  "version": "1.0.0",
+  "description": "Progressive Web App viewer for WebTorrent live streaming",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "webtorrent",
+    "live-streaming",
+    "pwa",
+    "viewer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "hls.js": "^1.5.13",
+    "p2p-media-loader-core": "2.2.1",
+    "p2p-media-loader-hlsjs": "2.2.1",
+    "webtorrent": "^2.1.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}
+

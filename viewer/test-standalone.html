@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebTorrent & HLS Test - Fire TV / Android TV</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #000;
+      color: #fff;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 2rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 30px;
+    }
+
+    .test-section {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 30px;
+      border: 2px solid #333;
+    }
+
+    .test-section.active {
+      border-color: #4ecdc4;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    h2 {
+      color: #4ecdc4;
+      font-size: 1.5rem;
+    }
+
+    .status-badge {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .status-idle { background: #333; color: #888; }
+    .status-loading { background: #ffa600; color: #000; }
+    .status-playing { background: #4ecdc4; color: #000; }
+    .status-error { background: #ff6b6b; color: #fff; }
+
+    button {
+      background: #4ecdc4;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px 10px 10px 0;
+      transition: transform 0.1s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+
+    button:disabled {
+      background: #333;
+      color: #666;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .video-container {
+      position: relative;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 15px 0;
+    }
+
+    video {
+      width: 100%;
+      display: block;
+      max-height: 60vh;
+    }
+
+    .input-group {
+      margin: 15px 0;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #aaa;
+      font-size: 0.9rem;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      background: #000;
+      border: 2px solid #333;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 1rem;
+      font-family: monospace;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #4ecdc4;
+    }
+
+    .log {
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 15px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      margin-top: 15px;
+    }
+
+    .log-entry {
+      padding: 2px 0;
+      border-bottom: 1px solid #222;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-time { color: #666; margin-right: 10px; }
+    .log-info { color: #4ecdc4; }
+    .log-warn { color: #ffa600; }
+    .log-error { color: #ff6b6b; }
+    .log-success { color: #4ecdc4; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+
+    .stat-box {
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .stat-label {
+      color: #888;
+      font-size: 0.8rem;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      color: #4ecdc4;
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    .device-info {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+
+    .device-info strong {
+      color: #4ecdc4;
+    }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    .preset-btn {
+      background: #333;
+      color: #fff;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+    }
+
+    .preset-btn:hover {
+      background: #444;
+    }
+
+    @media (max-width: 768px) {
+      h1 { font-size: 1.5rem; }
+      h2 { font-size: 1.2rem; }
+      button { font-size: 1rem; padding: 10px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔥 WebTorrent & HLS Tester</h1>
+    <p class="subtitle">Test video playback on Fire TV, Android TV, and other devices</p>
+
+    <!-- Device Info -->
+    <div class="device-info" id="device-info">
+      <strong>Device:</strong> <span id="device-name">Detecting...</span><br>
+      <strong>Browser:</strong> <span id="browser-name">Detecting...</span><br>
+      <strong>WebTorrent:</strong> <span id="webtorrent-support">Checking...</span><br>
+      <strong>MediaSource:</strong> <span id="mse-support">Checking...</span><br>
+      <strong>HLS Native:</strong> <span id="hls-support">Checking...</span><br>
+      <strong>Debug:</strong> <span id="debug-info" style="color: #888;">Loading...</span>
+    </div>
+
+    <!-- HLS Test Section -->
+    <div class="test-section" id="hls-section">
+      <div class="section-header">
+        <h2>📺 HLS Live Stream Test</h2>
+        <span class="status-badge status-idle" id="hls-status">Idle</span>
+      </div>
+      
+      <p style="margin-bottom: 15px; color: #aaa;">Test if this device can play HLS video streams (used by Owncast).</p>
+      
+      <div class="input-group">
+        <label for="hls-url">HLS Stream URL (.m3u8):</label>
+        <input type="text" id="hls-url" value="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" placeholder="https://example.com/stream.m3u8">
+      </div>
+
+      <div class="presets">
+        <button class="preset-btn" onclick="setHLSPreset('mux')">Mux Test Stream</button>
+        <button class="preset-btn" onclick="setHLSPreset('big-buck')">Big Buck Bunny</button>
+        <button class="preset-btn" onclick="setHLSPreset('custom')">Custom URL</button>
+      </div>
+
+      <button onclick="playHLS()">▶️ Play HLS Stream</button>
+      <button onclick="stopHLS()">⏹️ Stop</button>
+
+      <div class="video-container">
+        <video id="hls-video" controls playsinline></video>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">Video State</div>
+          <div class="stat-value" id="hls-state">-</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Current Time</div>
+          <div class="stat-value" id="hls-time">0s</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Buffered</div>
+          <div class="stat-value" id="hls-buffered">0s</div>
+        </div>
+      </div>
+
+      <div class="log" id="hls-log"></div>
+    </div>
+
+    <!-- WebTorrent Test Section -->
+    <div class="test-section" id="torrent-section">
+      <div class="section-header">
+        <h2>🌐 WebTorrent P2P Test</h2>
+        <span class="status-badge status-idle" id="torrent-status">Idle</span>
+      </div>
+      
+      <p style="margin-bottom: 15px; color: #aaa;">Test if this device can download and play video via WebTorrent P2P.</p>
+      
+      <div class="input-group">
+        <label for="magnet-url">Magnet URI or Torrent URL:</label>
+        <input type="text" id="magnet-url" value="magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com" placeholder="magnet:?xt=urn:btih:...">
+      </div>
+
+      <div class="presets">
+        <button class="preset-btn" onclick="setTorrentPreset('sintel')">Sintel Movie</button>
+        <button class="preset-btn" onclick="setTorrentPreset('big-buck')">Big Buck Bunny</button>
+        <button class="preset-btn" onclick="setTorrentPreset('custom')">Custom Magnet</button>
+      </div>
+
+      <button onclick="playTorrent()">▶️ Download & Play Torrent</button>
+      <button onclick="stopTorrent()">⏹️ Stop</button>
+
+      <div class="video-container">
+        <video id="torrent-video" controls playsinline></video>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">Peers</div>
+          <div class="stat-value" id="torrent-peers">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Download Speed</div>
+          <div class="stat-value" id="torrent-speed">0 KB/s</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Downloaded</div>
+          <div class="stat-value" id="torrent-downloaded">0 MB</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Progress</div>
+          <div class="stat-value" id="torrent-progress">0%</div>
+        </div>
+      </div>
+
+      <div class="log" id="torrent-log"></div>
+    </div>
+
+  </div>
+
+  <!-- WebTorrent Library - Using jsDelivr CDN with correct path -->
+  <script 
+    src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"
+    crossorigin="anonymous"
+    onload="console.log('✅ WebTorrent script loaded'); console.log('WebTorrent version:', WebTorrent.VERSION);"
+    onerror="console.error('❌ Failed to load WebTorrent')">
+  </script>
+  
+  <script>
+    // ===== Device Detection =====
+    function detectDevice() {
+      const ua = navigator.userAgent;
+      let device = 'Unknown';
+      let browser = 'Unknown';
+
+      // Device detection
+      if (/AFTM|AFTT|AFTS|AFTB/.test(ua)) {
+        device = 'Amazon Fire TV';
+      } else if (/Android.*TV/.test(ua)) {
+        device = 'Android TV';
+      } else if (/Android/.test(ua)) {
+        device = 'Android Mobile';
+      } else if (/iPhone|iPad|iPod/.test(ua)) {
+        device = 'iOS Device';
+      } else if (/Mac/.test(ua)) {
+        device = 'macOS';
+      } else if (/Windows/.test(ua)) {
+        device = 'Windows PC';
+      } else if (/Linux/.test(ua)) {
+        device = 'Linux';
+      }
+
+      // Browser detection
+      if (/Silk/.test(ua)) {
+        browser = 'Amazon Silk';
+      } else if (/Chrome/.test(ua) && !/Edge/.test(ua)) {
+        browser = 'Chrome';
+      } else if (/Safari/.test(ua) && !/Chrome/.test(ua)) {
+        browser = 'Safari';
+      } else if (/Firefox/.test(ua)) {
+        browser = 'Firefox';
+      } else if (/Edge/.test(ua)) {
+        browser = 'Edge';
+      }
+
+      document.getElementById('device-name').textContent = device;
+      document.getElementById('browser-name').textContent = browser;
+
+      // Check WebTorrent - retry multiple times with longer timeout
+      let checkAttempts = 0;
+      const maxAttempts = 10; // Try for up to 10 seconds
+      
+      function checkWebTorrentSupport() {
+        checkAttempts++;
+        
+        try {
+          const wtSupported = typeof WebTorrent !== 'undefined' && typeof window.WebTorrent !== 'undefined';
+          const webrtcSupported = !!(navigator.getUserMedia || navigator.webkitGetUserMedia || 
+                                   navigator.mozGetUserMedia || navigator.msGetUserMedia ||
+                                   (window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection));
+          
+          // Update debug info
+          document.getElementById('debug-info').textContent = 
+            `WT:${typeof WebTorrent} RTC:${!!window.RTCPeerConnection} Attempt:${checkAttempts}`;
+          
+          if (wtSupported) {
+            document.getElementById('webtorrent-support').textContent = '✅ Loaded & Ready';
+            document.getElementById('webtorrent-support').style.color = '#4ecdc4';
+            document.getElementById('debug-info').textContent = 'WebTorrent ready!';
+            document.getElementById('debug-info').style.color = '#4ecdc4';
+            console.log('✅ WebTorrent loaded successfully');
+            return; // Stop checking
+          } else if (webrtcSupported) {
+            document.getElementById('webtorrent-support').textContent = `⚠️ Loading... (${checkAttempts}/${maxAttempts})`;
+            document.getElementById('webtorrent-support').style.color = '#ffa600';
+            
+            // Keep trying
+            if (checkAttempts < maxAttempts) {
+              setTimeout(checkWebTorrentSupport, 1000);
+            } else {
+              // Give up after max attempts
+              document.getElementById('webtorrent-support').textContent = '❌ Failed to Load (WebRTC OK)';
+              document.getElementById('webtorrent-support').style.color = '#ff6b6b';
+              document.getElementById('debug-info').textContent = 'CDN blocked or timeout';
+              document.getElementById('debug-info').style.color = '#ff6b6b';
+              console.error('❌ WebTorrent failed to load after', maxAttempts, 'attempts');
+              console.log('WebRTC is supported, but WebTorrent library did not load');
+              console.log('This may indicate a CDN issue or network blocking');
+            }
+          } else {
+            document.getElementById('webtorrent-support').textContent = '❌ WebRTC Not Supported';
+            document.getElementById('webtorrent-support').style.color = '#ff6b6b';
+            document.getElementById('debug-info').textContent = 'No WebRTC support';
+            document.getElementById('debug-info').style.color = '#ff6b6b';
+            console.log('❌ WebRTC not supported on this device');
+          }
+        } catch (e) {
+          document.getElementById('webtorrent-support').textContent = '❌ Error: ' + e.message;
+          document.getElementById('webtorrent-support').style.color = '#ff6b6b';
+          document.getElementById('debug-info').textContent = 'Error: ' + e.message;
+          document.getElementById('debug-info').style.color = '#ff6b6b';
+          console.error('Error checking WebTorrent:', e);
+        }
+      }
+      
+      // Start checking after initial delay
+      setTimeout(checkWebTorrentSupport, 500);
+
+      const mseSupported = 'MediaSource' in window;
+      document.getElementById('mse-support').textContent = mseSupported ? '✅ Supported' : '❌ Not Supported';
+      document.getElementById('mse-support').style.color = mseSupported ? '#4ecdc4' : '#ff6b6b';
+
+      const hlsSupported = document.createElement('video').canPlayType('application/vnd.apple.mpegurl') !== '';
+      document.getElementById('hls-support').textContent = hlsSupported ? '✅ Native Support' : '⚠️ Needs JS Library';
+      document.getElementById('hls-support').style.color = hlsSupported ? '#4ecdc4' : '#ffa600';
+    }
+
+    // ===== Logging Functions =====
+    function log(message, type = 'info', logId) {
+      const now = new Date();
+      const time = now.toLocaleTimeString();
+      const logEl = document.getElementById(logId);
+      
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-time">${time}</span><span>${message}</span>`;
+      
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+
+      console.log(`[${type.toUpperCase()}]`, message);
+    }
+
+    function logHLS(msg, type = 'info') {
+      log(msg, type, 'hls-log');
+    }
+
+    function logTorrent(msg, type = 'info') {
+      log(msg, type, 'torrent-log');
+    }
+
+    // ===== HLS Testing =====
+    const hlsVideo = document.getElementById('hls-video');
+    let hlsUpdateInterval;
+
+    function setHLSPreset(preset) {
+      const presets = {
+        'mux': 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+        'big-buck': 'https://test-streams.mux.dev/x36xhzz/url_6/193039199_mp4_h264_aac_hq_7.m3u8',
+      };
+      if (preset !== 'custom' && presets[preset]) {
+        document.getElementById('hls-url').value = presets[preset];
+      }
+    }
+
+    function playHLS() {
+      const url = document.getElementById('hls-url').value.trim();
+      
+      if (!url) {
+        logHLS('❌ Please enter an HLS URL', 'error');
+        return;
+      }
+
+      logHLS('🎬 Starting HLS playback...', 'info');
+      document.getElementById('hls-status').textContent = 'Loading';
+      document.getElementById('hls-status').className = 'status-badge status-loading';
+
+      // Test if browser supports HLS natively (Safari)
+      if (hlsVideo.canPlayType('application/vnd.apple.mpegurl')) {
+        logHLS('✅ Using native HLS support', 'success');
+        hlsVideo.src = url;
+      } else {
+        logHLS('⚠️ Native HLS not supported - loading video directly', 'warn');
+        hlsVideo.src = url;
+      }
+
+      hlsVideo.load();
+
+      hlsVideo.addEventListener('loadstart', () => logHLS('📡 Loading stream...', 'info'), { once: true });
+      hlsVideo.addEventListener('loadedmetadata', () => {
+        logHLS('✅ Metadata loaded', 'success');
+        document.getElementById('hls-status').textContent = 'Playing';
+        document.getElementById('hls-status').className = 'status-badge status-playing';
+      }, { once: true });
+      
+      hlsVideo.addEventListener('canplay', () => {
+        logHLS('✅ Video ready to play', 'success');
+        hlsVideo.play().then(() => {
+          logHLS('▶️ Playback started', 'success');
+        }).catch(err => {
+          logHLS(`❌ Autoplay failed: ${err.message}. Click video to start.`, 'warn');
+        });
+      }, { once: true });
+
+      hlsVideo.addEventListener('error', (e) => {
+        logHLS(`❌ Video error: ${hlsVideo.error?.message || 'Unknown error'}`, 'error');
+        document.getElementById('hls-status').textContent = 'Error';
+        document.getElementById('hls-status').className = 'status-badge status-error';
+      });
+
+      hlsVideo.addEventListener('stalled', () => logHLS('⚠️ Playback stalled', 'warn'));
+      hlsVideo.addEventListener('waiting', () => logHLS('⏳ Buffering...', 'warn'));
+      hlsVideo.addEventListener('playing', () => logHLS('▶️ Playing', 'success'));
+
+      // Update stats
+      if (hlsUpdateInterval) clearInterval(hlsUpdateInterval);
+      hlsUpdateInterval = setInterval(updateHLSStats, 1000);
+    }
+
+    function stopHLS() {
+      hlsVideo.pause();
+      hlsVideo.src = '';
+      if (hlsUpdateInterval) clearInterval(hlsUpdateInterval);
+      document.getElementById('hls-status').textContent = 'Idle';
+      document.getElementById('hls-status').className = 'status-badge status-idle';
+      logHLS('⏹️ Stopped', 'info');
+    }
+
+    function updateHLSStats() {
+      document.getElementById('hls-state').textContent = 
+        hlsVideo.paused ? 'Paused' : hlsVideo.ended ? 'Ended' : 'Playing';
+      document.getElementById('hls-time').textContent = hlsVideo.currentTime.toFixed(1) + 's';
+      
+      if (hlsVideo.buffered.length > 0) {
+        const buffered = hlsVideo.buffered.end(0) - hlsVideo.currentTime;
+        document.getElementById('hls-buffered').textContent = buffered.toFixed(1) + 's';
+      }
+    }
+
+    // ===== WebTorrent Testing =====
+    const torrentVideo = document.getElementById('torrent-video');
+    let wtClient;
+    let currentTorrent;
+    let torrentUpdateInterval;
+
+    function setTorrentPreset(preset) {
+      const presets = {
+        'sintel': 'magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com',
+        'big-buck': 'magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com'
+      };
+      if (preset !== 'custom' && presets[preset]) {
+        document.getElementById('magnet-url').value = presets[preset];
+      }
+    }
+
+    function playTorrent() {
+      const magnetUri = document.getElementById('magnet-url').value.trim();
+      
+      if (!magnetUri) {
+        logTorrent('❌ Please enter a magnet URI', 'error');
+        return;
+      }
+
+      if (typeof WebTorrent === 'undefined') {
+        logTorrent('❌ WebTorrent not available on this device', 'error');
+        document.getElementById('torrent-status').textContent = 'Not Supported';
+        document.getElementById('torrent-status').className = 'status-badge status-error';
+        return;
+      }
+
+      logTorrent('🌐 Initializing WebTorrent...', 'info');
+      document.getElementById('torrent-status').textContent = 'Loading';
+      document.getElementById('torrent-status').className = 'status-badge status-loading';
+
+      // Initialize WebTorrent client
+      if (!wtClient) {
+        wtClient = new WebTorrent();
+        logTorrent('✅ WebTorrent client initialized', 'success');
+        
+        wtClient.on('error', (err) => {
+          logTorrent(`❌ Client error: ${err.message}`, 'error');
+        });
+      }
+
+      // Add torrent
+      logTorrent('📥 Adding torrent...', 'info');
+      logTorrent(`Magnet: ${magnetUri.substring(0, 60)}...`, 'info');
+
+      currentTorrent = wtClient.add(magnetUri);
+
+      currentTorrent.on('metadata', () => {
+        logTorrent('✅ Metadata received', 'success');
+        logTorrent(`Name: ${currentTorrent.name}`, 'info');
+        logTorrent(`Files: ${currentTorrent.files.length}`, 'info');
+        logTorrent(`Size: ${(currentTorrent.length / 1024 / 1024).toFixed(2)} MB`, 'info');
+      });
+
+      currentTorrent.on('ready', () => {
+        logTorrent('✅ Torrent ready', 'success');
+        
+        // Find video file
+        const file = currentTorrent.files.find(f => 
+          f.name.endsWith('.mp4') || f.name.endsWith('.webm') || f.name.endsWith('.mkv')
+        );
+
+        if (!file) {
+          logTorrent('❌ No video file found in torrent', 'error');
+          return;
+        }
+
+        logTorrent(`📹 Found video: ${file.name}`, 'success');
+        logTorrent('🎬 Starting playback...', 'info');
+
+        file.renderTo(torrentVideo, {
+          autoplay: true,
+          controls: true
+        });
+
+        document.getElementById('torrent-status').textContent = 'Playing';
+        document.getElementById('torrent-status').className = 'status-badge status-playing';
+
+        torrentVideo.addEventListener('error', (e) => {
+          logTorrent(`❌ Video error: ${torrentVideo.error?.message || 'Unknown'}`, 'error');
+        });
+      });
+
+      currentTorrent.on('download', (bytes) => {
+        if (!torrentUpdateInterval) {
+          torrentUpdateInterval = setInterval(updateTorrentStats, 1000);
+        }
+      });
+
+      currentTorrent.on('wire', (wire) => {
+        logTorrent(`🤝 Connected to peer: ${currentTorrent.numPeers} total`, 'success');
+      });
+
+      currentTorrent.on('error', (err) => {
+        logTorrent(`❌ Torrent error: ${err.message}`, 'error');
+        document.getElementById('torrent-status').textContent = 'Error';
+        document.getElementById('torrent-status').className = 'status-badge status-error';
+      });
+    }
+
+    function stopTorrent() {
+      if (currentTorrent) {
+        currentTorrent.destroy();
+        currentTorrent = null;
+        logTorrent('⏹️ Torrent stopped', 'info');
+      }
+      torrentVideo.pause();
+      torrentVideo.src = '';
+      if (torrentUpdateInterval) {
+        clearInterval(torrentUpdateInterval);
+        torrentUpdateInterval = null;
+      }
+      document.getElementById('torrent-status').textContent = 'Idle';
+      document.getElementById('torrent-status').className = 'status-badge status-idle';
+    }
+
+    function updateTorrentStats() {
+      if (!currentTorrent) return;
+
+      document.getElementById('torrent-peers').textContent = currentTorrent.numPeers;
+      document.getElementById('torrent-speed').textContent = (currentTorrent.downloadSpeed / 1024).toFixed(2) + ' KB/s';
+      document.getElementById('torrent-downloaded').textContent = (currentTorrent.downloaded / 1024 / 1024).toFixed(2) + ' MB';
+      document.getElementById('torrent-progress').textContent = (currentTorrent.progress * 100).toFixed(1) + '%';
+    }
+
+    // ===== Initialize =====
+    window.addEventListener('DOMContentLoaded', () => {
+      detectDevice();
+      logHLS('🚀 HLS tester ready', 'info');
+      logTorrent('🚀 WebTorrent tester ready', 'info');
+    });
+  </script>
+</body>
+</html>
+

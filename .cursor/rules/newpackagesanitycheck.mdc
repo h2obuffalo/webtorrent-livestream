@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+
+Always check if a library exists and can load before hadning over to user to test when a new library or updated library is added. Also check dependancies and see if they aren't broken etc
+---

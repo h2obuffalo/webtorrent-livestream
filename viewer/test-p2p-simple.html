@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quick P2P Test - Known Torrent</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui; background: #0b0f14; color: #fff; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { text-align: center; margin-bottom: 20px; color: #4ecdc4; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0; }
+    .stat { background: #1a1a1a; padding: 15px; border-radius: 8px; text-align: center; }
+    .stat-label { color: #888; font-size: 0.9rem; margin-bottom: 5px; }
+    .stat-value { color: #4ecdc4; font-size: 1.5rem; font-weight: 600; }
+    button { background: #4ecdc4; color: #000; border: none; padding: 12px 24px; font-size: 1.1rem; font-weight: 600; border-radius: 8px; cursor: pointer; margin: 10px 5px; }
+    button:hover { transform: scale(1.05); }
+    .log { background: #000; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; margin-top: 20px; }
+    .log-entry { padding: 2px 0; border-bottom: 1px solid #222; }
+    .log-success { color: #4ade80; }
+    .log-info { color: #4ecdc4; }
+    .log-warn { color: #ffa600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚡ Quick P2P Test - WebTorrent Connectivity</h1>
+    
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Peers</div>
+        <div class="stat-value" id="peers">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Downloaded</div>
+        <div class="stat-value" id="downloaded">0 MB</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Speed</div>
+        <div class="stat-value" id="speed">0 KB/s</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Progress</div>
+        <div class="stat-value" id="progress">0%</div>
+      </div>
+    </div>
+
+    <button onclick="testP2P()">🌐 Test P2P with Sintel Movie</button>
+    <button onclick="stopTest()">⏹️ Stop</button>
+
+    <div class="log" id="log"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+  <script>
+    let client = null;
+    let torrent = null;
+    let statsInterval = null;
+
+    function log(msg, type = 'info') {
+      const time = new Date().toLocaleTimeString() + '.' + new Date().getMilliseconds().toString().padStart(3, '0');
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<span style="color:#666">${time}</span> ${msg}`;
+      document.getElementById('log').appendChild(entry);
+      document.getElementById('log').scrollTop = 999999;
+      console.log(msg);
+    }
+
+    function testP2P() {
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      log('🎬 Starting P2P test with known-good torrent...', 'info');
+      
+      if (!window.WebTorrent) {
+        log('❌ WebTorrent not loaded', 'warn');
+        return;
+      }
+
+      client = new WebTorrent();
+      log('✅ WebTorrent client created', 'success');
+
+      // Sintel movie - always has seeds
+      const magnetUri = 'magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com';
+
+      log('📥 Adding torrent...', 'info');
+      
+      torrent = client.add(magnetUri);
+
+      torrent.on('metadata', () => {
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'success');
+        log('✅ METADATA RECEIVED!', 'success');
+        log(`   Name: ${torrent.name}`, 'success');
+        log(`   Files: ${torrent.files.length}`, 'success');
+        log(`   Size: ${(torrent.length / 1024 / 1024).toFixed(2)} MB`, 'success');
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'success');
+      });
+
+      torrent.on('ready', () => {
+        log('✅ Torrent ready to download', 'success');
+      });
+
+      torrent.on('wire', (wire, addr) => {
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'success');
+        log(`🤝 PEER CONNECTED!`, 'success');
+        log(`   Address: ${addr || 'unknown'}`, 'success');
+        log(`   Total peers: ${torrent.numPeers}`, 'success');
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'success');
+      });
+
+      torrent.on('download', (bytes) => {
+        if (!statsInterval) {
+          statsInterval = setInterval(updateStats, 1000);
+        }
+      });
+
+      torrent.on('error', (err) => {
+        log(`❌ Torrent error: ${err.message}`, 'warn');
+      });
+
+      client.on('error', (err) => {
+        log(`❌ Client error: ${err.message}`, 'warn');
+      });
+
+      log('⏳ Connecting to peers...', 'info');
+      log('💡 Open this page in multiple tabs to see P2P sharing!', 'info');
+    }
+
+    function updateStats() {
+      if (!torrent) return;
+      
+      document.getElementById('peers').textContent = torrent.numPeers;
+      document.getElementById('downloaded').textContent = (torrent.downloaded / 1024 / 1024).toFixed(2) + ' MB';
+      document.getElementById('speed').textContent = (torrent.downloadSpeed / 1024).toFixed(2) + ' KB/s';
+      document.getElementById('progress').textContent = (torrent.progress * 100).toFixed(1) + '%';
+    }
+
+    function stopTest() {
+      if (torrent) {
+        torrent.destroy();
+        torrent = null;
+      }
+      if (client) {
+        client.destroy();
+        client = null;
+      }
+      if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
+      }
+      log('⏹️ Test stopped', 'info');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      log('🚀 P2P Tester Ready!', 'info');
+      log('💡 This tests if P2P connectivity works at all', 'info');
+      log('💡 If you see peer connections, P2P is working!', 'info');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+    });
+  </script>
+</body>
+</html>
+

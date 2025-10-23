@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P Media Loader Version Check</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    .test {
+      background: #2a2a2a;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+    .success { border-left: 5px solid #4ade80; }
+    .error { border-left: 5px solid #f87171; }
+    .loading { border-left: 5px solid #fbbf24; }
+  </style>
+</head>
+<body>
+  <h1>P2P Media Loader Version Checker</h1>
+  <div id="results"></div>
+
+  <script>
+    const versions = [
+      '2.2.1',
+      '2.2.0',
+      '2.1.0',
+      '2.0.0',
+      '1.3.0',
+      '1.2.10',
+      '1.2.0',
+      '0.6.2'
+    ];
+
+    const results = document.getElementById('results');
+
+    async function testVersion(version) {
+      const div = document.createElement('div');
+      div.className = 'test loading';
+      div.innerHTML = `<strong>v${version}</strong>: Testing...`;
+      results.appendChild(div);
+
+      const coreUrl = `https://cdn.jsdelivr.net/npm/p2p-media-loader-core@${version}/build/p2p-media-loader-core.min.js`;
+      const hlsjsUrl = `https://cdn.jsdelivr.net/npm/p2p-media-loader-hlsjs@${version}/build/p2p-media-loader-hlsjs.min.js`;
+
+      try {
+        // Test core
+        const coreResponse = await fetch(coreUrl, { method: 'HEAD' });
+        const hlsjsResponse = await fetch(hlsjsUrl, { method: 'HEAD' });
+
+        if (coreResponse.ok && hlsjsResponse.ok) {
+          div.className = 'test success';
+          div.innerHTML = `<strong>v${version}</strong>: ✅ Available<br>
+            <small>Core: ${coreUrl}</small><br>
+            <small>HLS.js: ${hlsjsUrl}</small>`;
+        } else {
+          div.className = 'test error';
+          div.innerHTML = `<strong>v${version}</strong>: ❌ Not found<br>
+            <small>Core: ${coreResponse.status}, HLS.js: ${hlsjsResponse.status}</small>`;
+        }
+      } catch (err) {
+        div.className = 'test error';
+        div.innerHTML = `<strong>v${version}</strong>: ❌ Error: ${err.message}`;
+      }
+    }
+
+    // Test all versions
+    (async () => {
+      for (const version of versions) {
+        await testVersion(version);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    })();
+  </script>
+</body>
+</html>
+

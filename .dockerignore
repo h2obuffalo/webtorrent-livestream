@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+.DS_Store
+*.log
+.git
+.gitignore
+README.md
+docs/
+viewer/node_modules
+broadcaster/node_modules
+signaling/node_modules
+stremio-addon/node_modules
+

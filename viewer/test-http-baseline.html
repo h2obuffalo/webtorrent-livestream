@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HLS Baseline Test - HTTP Only</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0b0f14;
+      color: #e6eef7;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 2rem;
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 30px;
+    }
+
+    .alert {
+      background: rgba(255, 255, 100, 0.1);
+      border: 2px solid #ffa600;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .alert h3 {
+      color: #ffa600;
+      margin-bottom: 10px;
+    }
+
+    .test-section {
+      background: #101826;
+      border: 1px solid #223040;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      background: #4ecdc4;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px 10px 10px 0;
+      transition: transform 0.1s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    .video-container {
+      position: relative;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 15px 0;
+      aspect-ratio: 16/9;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+
+    .log {
+      background: #000;
+      border: 1px solid #223040;
+      border-radius: 6px;
+      padding: 15px;
+      height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      margin-top: 15px;
+    }
+
+    .log-entry {
+      padding: 2px 0;
+      border-bottom: 1px solid #111;
+    }
+
+    .log-time { color: #666; margin-right: 10px; }
+    .log-info { color: #4ecdc4; }
+    .log-success { color: #4ade80; }
+
+    .input-group {
+      margin: 15px 0;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #aaa;
+      font-size: 0.9rem;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      background: #0b0f14;
+      border: 2px solid #223040;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 1rem;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📺 HLS Baseline Test - HTTP Only</h1>
+    <p class="subtitle">Verify HLS playback works before adding P2P complexity</p>
+
+    <div class="alert">
+      <h3>⚠️ Why This Test?</h3>
+      <ul style="margin-left: 20px; line-height: 1.6;">
+        <li>✅ Baseline: Confirm HLS.js works correctly</li>
+        <li>✅ No P2P complexity yet</li>
+        <li>✅ Once this works, we add broadcaster seeding</li>
+        <li>✅ Then viewers can use P2P with broadcaster as seed</li>
+      </ul>
+    </div>
+
+    <div class="test-section">
+      <h2>📺 HLS Stream Test (HTTP Only)</h2>
+      
+      <div class="input-group">
+        <label for="hls-url">HLS Stream URL (.m3u8):</label>
+        <input type="text" id="hls-url" value="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" placeholder="https://example.com/stream.m3u8">
+      </div>
+
+      <button onclick="playStream()">▶️ Play Stream (HTTP)</button>
+      <button onclick="stopStream()">⏹️ Stop</button>
+      <button onclick="clearLog()">🗑️ Clear Log</button>
+
+      <div class="video-container">
+        <video id="video" controls playsinline></video>
+      </div>
+
+      <div class="log" id="log"></div>
+    </div>
+
+  </div>
+
+  <!-- HLS.js only -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.0.7/dist/hls.min.js"></script>
+
+  <script>
+    let hls = null;
+    let segmentCount = 0;
+
+    function log(message, type = 'info') {
+      const now = new Date();
+      const time = now.toLocaleTimeString() + '.' + now.getMilliseconds().toString().padStart(3, '0');
+      
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-time">${time}</span><span>${message}</span>`;
+      
+      const logPanel = document.getElementById('log');
+      logPanel.appendChild(entry);
+      logPanel.scrollTop = logPanel.scrollHeight;
+      
+      while (logPanel.children.length > 100) {
+        logPanel.removeChild(logPanel.firstChild);
+      }
+      
+      console.log(`[${type.toUpperCase()}] ${time}`, message);
+    }
+
+    function clearLog() {
+      document.getElementById('log').innerHTML = '';
+      log('🗑️ Log cleared', 'info');
+    }
+
+    function playStream() {
+      const url = document.getElementById('hls-url').value.trim();
+      
+      if (!url) {
+        log('❌ Please enter an HLS URL', 'error');
+        return;
+      }
+
+      if (!Hls.isSupported()) {
+        log('❌ HLS.js not supported on this browser', 'error');
+        return;
+      }
+
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      log('🎬 Starting HTTP-only HLS playback (baseline test)...', 'info');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      
+      const video = document.getElementById('video');
+
+      // Simple HLS.js with no P2P
+      hls = new Hls({
+        debug: false,
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 30,
+        maxBufferLength: 30
+      });
+      
+      log('✅ HLS instance created (HTTP only)', 'success');
+      
+      hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        log(`✅ Manifest parsed (${data.levels.length} quality levels)`, 'success');
+        video.play().catch(err => {
+          log(`⚠️ Autoplay blocked: ${err.message}. Click video to play.`, 'info');
+        });
+      });
+      
+      hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+        log(`📋 Level loaded: ${data.details.fragments.length} fragments available`, 'info');
+      });
+      
+      hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
+        log(`🔄 Loading fragment ${data.frag.sn}: ${data.frag.url.split('/').pop().substring(0, 40)}...`, 'info');
+      });
+      
+      hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+        segmentCount++;
+        const size = data.frag?.stats?.total || data.stats?.total || 0;
+        const time = data.frag?.stats?.loading?.end - data.frag?.stats?.loading?.start || 0;
+        log(`✅ Fragment ${data.frag.sn} loaded via HTTP (${(size / 1024).toFixed(2)} KB in ${time}ms)`, 'success');
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          log(`❌ Fatal error: ${data.type} - ${data.details}`, 'error');
+          
+          switch(data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              log('⚠️  Attempting to recover from network error...', 'info');
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              log('⚠️  Attempting to recover from media error...', 'info');
+              hls.recoverMediaError();
+              break;
+            default:
+              log('❌ Cannot recover, please try a different stream', 'error');
+              stopStream();
+              break;
+          }
+        } else {
+          log(`⚠️ Non-fatal warning: ${data.details}`, 'info');
+        }
+      });
+      
+      log('🔧 Loading source...', 'info');
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      
+      log(`✅ Source attached: ${url.substring(0, 60)}...`, 'success');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      log('⏳ Waiting for video to load...', 'info');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+    }
+
+    function stopStream() {
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+      
+      const video = document.getElementById('video');
+      video.pause();
+      video.src = '';
+      
+      segmentCount = 0;
+      
+      log('⏹️ Stream stopped', 'info');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      log('🚀 HTTP Baseline Tester Ready!', 'info');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      
+      setTimeout(() => {
+        if (typeof Hls !== 'undefined') {
+          log('✅ HLS.js v' + Hls.version + ' loaded', 'success');
+          log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+          log('💡 This is a baseline test with NO P2P', 'info');
+          log('💡 Once this works, we\'ll add broadcaster seeding', 'info');
+          log('💡 Then viewers can use P2P with broadcaster as seed', 'info');
+          log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+        } else {
+          log('❌ HLS.js failed to load', 'error');
+        }
+      }, 500);
+    });
+  </script>
+</body>
+</html>
+

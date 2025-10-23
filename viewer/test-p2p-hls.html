@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P HLS Test v2 - Fire TV / Android TV</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0b0f14;
+      color: #e6eef7;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 2rem;
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 30px;
+    }
+
+    .device-info {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+
+    .device-info strong {
+      color: #4ecdc4;
+    }
+
+    .test-section {
+      background: #101826;
+      border: 1px solid #223040;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      color: #4ecdc4;
+      margin-bottom: 15px;
+    }
+
+    .input-group {
+      margin: 15px 0;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #aaa;
+      font-size: 0.9rem;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      background: #0b0f14;
+      border: 2px solid #223040;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 1rem;
+      font-family: monospace;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #4ecdc4;
+    }
+
+    button {
+      background: #4ecdc4;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px 10px 10px 0;
+      transition: transform 0.1s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+
+    .preset-btn {
+      background: #223040;
+      color: #fff;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+    }
+
+    .preset-btn:hover {
+      background: #2a3a4b;
+    }
+
+    .video-container {
+      position: relative;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 15px 0;
+      aspect-ratio: 16/9;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+
+    .stat-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid #223040;
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .stat-label {
+      color: #888;
+      font-size: 0.8rem;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      color: #4ecdc4;
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    .log {
+      background: #000;
+      border: 1px solid #223040;
+      border-radius: 6px;
+      padding: 15px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      margin-top: 15px;
+    }
+
+    .log-entry {
+      padding: 2px 0;
+      border-bottom: 1px solid #111;
+    }
+
+    .log-time { color: #666; margin-right: 10px; }
+    .log-info { color: #4ecdc4; }
+    .log-warn { color: #ffa600; }
+    .log-error { color: #ff6b6b; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌐 P2P HLS Test (HLS 1.0.7 + P2P 0.6.2)</h1>
+    <p class="subtitle">Using p2p-media-loader for Fire TV, Android TV, iOS, and Desktop</p>
+
+    <!-- Device Info -->
+    <div class="device-info" id="device-info">
+      <strong>Device:</strong> <span id="device-name">Detecting...</span><br>
+      <strong>Browser:</strong> <span id="browser-name">Detecting...</span><br>
+      <strong>P2P Support:</strong> <span id="p2p-support">Checking...</span><br>
+      <strong>HLS.js:</strong> <span id="hls-support">Checking...</span><br>
+      <strong>Debug:</strong> <span id="debug-info" style="color: #888;">Loading...</span>
+    </div>
+
+    <!-- HLS Test Section -->
+    <div class="test-section">
+      <h2>📺 P2P HLS Live Stream Test</h2>
+      
+      <p style="margin-bottom: 15px; color: #aaa;">
+        Test P2P-accelerated HLS streaming. Works on all platforms with WebRTC support.
+      </p>
+      
+      <div class="input-group">
+        <label for="hls-url">HLS Stream URL (.m3u8):</label>
+        <input type="text" id="hls-url" value="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" placeholder="https://example.com/stream.m3u8">
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0;">
+        <button class="preset-btn" onclick="setPreset('mux')">Mux Test Stream</button>
+        <button class="preset-btn" onclick="setPreset('big-buck')">Big Buck Bunny</button>
+        <button class="preset-btn" onclick="setPreset('custom')">Custom URL</button>
+      </div>
+
+      <button onclick="playStream()">▶️ Play with P2P</button>
+      <button onclick="stopStream()">⏹️ Stop</button>
+
+      <div class="video-container">
+        <video id="video" controls playsinline></video>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">P2P Peers</div>
+          <div class="stat-value" id="peer-count">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">P2P Downloaded</div>
+          <div class="stat-value" id="p2p-downloaded">0 MB</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">HTTP Downloaded</div>
+          <div class="stat-value" id="http-downloaded">0 MB</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">P2P Ratio</div>
+          <div class="stat-value" id="p2p-ratio">0%</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Buffer</div>
+          <div class="stat-value" id="buffer">0s</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Latency</div>
+          <div class="stat-value" id="latency">--</div>
+        </div>
+      </div>
+
+      <div class="log" id="log"></div>
+    </div>
+
+  </div>
+
+  <!-- HLS.js (v1.0.7 - compatible with p2p-media-loader 0.6.2) -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.0.7/dist/hls.min.js"></script>
+  
+  <!-- P2P Media Loader v0.6 (browser build - stable) -->
+  <script src="https://cdn.jsdelivr.net/npm/p2p-media-loader-core@0.6.2/build/p2p-media-loader-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/p2p-media-loader-hlsjs@0.6.2/build/p2p-media-loader-hlsjs.min.js"></script>
+
+  <script>
+    // State
+    let hls = null;
+    let p2pEngine = null;
+    let statsInterval = null;
+    
+    const stats = {
+      p2pDownloaded: 0,
+      httpDownloaded: 0,
+      peers: 0
+    };
+
+    // Logging
+    function log(message, type = 'info') {
+      const now = new Date();
+      const time = now.toLocaleTimeString();
+      
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-time">${time}</span><span>${message}</span>`;
+      
+      const logPanel = document.getElementById('log');
+      logPanel.appendChild(entry);
+      logPanel.scrollTop = logPanel.scrollHeight;
+      
+      while (logPanel.children.length > 50) {
+        logPanel.removeChild(logPanel.firstChild);
+      }
+      
+      console.log(`[${type.toUpperCase()}]`, message);
+    }
+
+    // Device Detection
+    function detectDevice() {
+      const ua = navigator.userAgent;
+      let device = 'Unknown';
+      let browser = 'Unknown';
+
+      if (/AFTM|AFTT|AFTS|AFTB/.test(ua)) {
+        device = 'Amazon Fire TV';
+      } else if (/Android.*TV/.test(ua)) {
+        device = 'Android TV';
+      } else if (/Android/.test(ua)) {
+        device = 'Android Mobile';
+      } else if (/iPhone|iPad|iPod/.test(ua)) {
+        device = 'iOS Device';
+      } else if (/Mac/.test(ua)) {
+        device = 'macOS';
+      } else if (/Windows/.test(ua)) {
+        device = 'Windows PC';
+      } else if (/Linux/.test(ua)) {
+        device = 'Linux';
+      }
+
+      if (/Silk/.test(ua)) {
+        browser = 'Amazon Silk';
+      } else if (/Chrome/.test(ua) && !/Edge/.test(ua)) {
+        browser = 'Chrome';
+      } else if (/Safari/.test(ua) && !/Chrome/.test(ua)) {
+        browser = 'Safari';
+      } else if (/Firefox/.test(ua)) {
+        browser = 'Firefox';
+      } else if (/Edge/.test(ua)) {
+        browser = 'Edge';
+      }
+
+      document.getElementById('device-name').textContent = device;
+      document.getElementById('browser-name').textContent = browser;
+
+      // Check support
+      const webrtcSupported = !!(window.RTCPeerConnection || window.webkitRTCPeerConnection);
+      const hlsSupported = typeof Hls !== 'undefined' && Hls.isSupported();
+      const p2pSupported = typeof window.p2pml !== 'undefined';
+
+      document.getElementById('p2p-support').textContent = webrtcSupported && p2pSupported ? '✅ Supported' : '❌ Not Supported';
+      document.getElementById('p2p-support').style.color = webrtcSupported && p2pSupported ? '#4ecdc4' : '#ff6b6b';
+      
+      document.getElementById('hls-support').textContent = hlsSupported ? '✅ Loaded' : '❌ Not Available';
+      document.getElementById('hls-support').style.color = hlsSupported ? '#4ecdc4' : '#ff6b6b';
+
+      document.getElementById('debug-info').textContent = 
+        `WebRTC:${webrtcSupported} HLS:${hlsSupported} P2P:${p2pSupported}`;
+      document.getElementById('debug-info').style.color = webrtcSupported && hlsSupported ? '#4ecdc4' : '#ffa600';
+    }
+
+    // Presets
+    function setPreset(preset) {
+      const presets = {
+        'mux': 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+        'big-buck': 'https://test-streams.mux.dev/x36xhzz/url_6/193039199_mp4_h264_aac_hq_7.m3u8',
+      };
+      if (preset !== 'custom' && presets[preset]) {
+        document.getElementById('hls-url').value = presets[preset];
+      }
+    }
+
+    // Play Stream
+    function playStream() {
+      const url = document.getElementById('hls-url').value.trim();
+      
+      if (!url) {
+        log('❌ Please enter an HLS URL', 'error');
+        return;
+      }
+
+      if (!Hls.isSupported()) {
+        log('❌ HLS.js not supported on this browser', 'error');
+        return;
+      }
+
+      log('🎬 Starting P2P HLS playback...', 'info');
+      
+      const video = document.getElementById('video');
+
+      // Check if p2p-media-loader v0.6 is available with detailed diagnostics
+      log(`🔍 Checking P2P availability...`, 'info');
+      log(`  - window.p2pml: ${typeof window.p2pml}`, 'info');
+      log(`  - window.p2pml.hlsjs: ${typeof window.p2pml?.hlsjs}`, 'info');
+      log(`  - window.p2pml.hlsjs.Engine: ${typeof window.p2pml?.hlsjs?.Engine}`, 'info');
+      
+      if (typeof window.p2pml === 'undefined' || !window.p2pml.hlsjs || !window.p2pml.hlsjs.Engine) {
+        log('⚠️ P2P Media Loader not available, using HLS.js only', 'warn');
+        log('💡 This might be due to: CDN loading failure, browser cache, or network issues', 'warn');
+        log('💡 Try hard refresh (Ctrl+Shift+R or Cmd+Shift+R)', 'warn');
+        playWithoutP2P(url, video);
+        return;
+      }
+
+      try {
+        log(`✅ Using P2P Media Loader v0.6.2 (stable browser build)`, 'info');
+        
+        // P2P configuration for v0.6 API
+        const p2pConfig = {
+          segments: {
+            forwardSegmentCount: 50,
+          },
+          loader: {
+            trackerAnnounce: [
+              'wss://tracker.openwebtorrent.com',
+              'wss://tracker.webtorrent.dev',
+              'wss://tracker.fastcast.nz'
+            ],
+            rtcConfig: {
+              iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+              ]
+            }
+          }
+        };
+        
+        log(`🔧 P2P Config:`, 'info');
+        log(`  - Trackers: ${p2pConfig.loader.trackerAnnounce.join(', ')}`, 'info');
+        
+        // Create P2P engine using v0.6 API
+        p2pEngine = new window.p2pml.hlsjs.Engine(p2pConfig);
+        
+        log('✅ P2P engine created', 'info');
+        
+        // Wire up event listeners for v0.6 with detailed tracker diagnostics
+        
+        // Peer connection events
+        p2pEngine.on('peer_connect', (peer) => {
+          stats.peers++;
+          log(`🤝 Peer connected! ID: ${peer?.id || 'unknown'} (Total: ${stats.peers})`, 'info');
+          log(`   Peer details: ${JSON.stringify(peer)}`, 'info');
+          updateStats();
+        });
+        
+        p2pEngine.on('peer_close', (peerId) => {
+          stats.peers = Math.max(0, stats.peers - 1);
+          log(`👋 Peer disconnected: ${peerId} (Total: ${stats.peers})`, 'info');
+          updateStats();
+        });
+        
+        // Segment loading events
+        p2pEngine.on('segment_loaded', (segment, peerId) => {
+          if (peerId) {
+            stats.p2pDownloaded += segment.data?.byteLength || 0;
+            log(`📥 P2P: Downloaded ${((segment.data?.byteLength || 0) / 1024).toFixed(2)} KB from peer ${peerId}`, 'info');
+          } else {
+            stats.httpDownloaded += segment.data?.byteLength || 0;
+            log(`📡 HTTP: Downloaded ${((segment.data?.byteLength || 0) / 1024).toFixed(2)} KB`, 'info');
+          }
+          updateStats();
+        });
+        
+        // Data sent event
+        p2pEngine.on('peer_data_sent', (data) => {
+          log(`📤 P2P: Sent data to peer - ${JSON.stringify(data)}`, 'info');
+        });
+        
+        // CRITICAL: Tracker events to debug connection issues
+        p2pEngine.on('tracker_announce', (tracker) => {
+          log(`📢 TRACKER ANNOUNCE: ${tracker?.url || tracker} - Announcing to swarm!`, 'info');
+        });
+        
+        p2pEngine.on('tracker_update', (data) => {
+          const peerCount = data?.peers?.length || 0;
+          log(`📊 TRACKER UPDATE: Received ${peerCount} peer(s) from tracker`, 'info');
+          if (peerCount > 0 && data?.peers) {
+            log(`   Available peers: ${JSON.stringify(data.peers.slice(0, 3))}${peerCount > 3 ? '...' : ''}`, 'info');
+          }
+        });
+        
+        p2pEngine.on('tracker_error', (error) => {
+          log(`❌ TRACKER ERROR: ${error?.message || error?.error || JSON.stringify(error)}`, 'error');
+        });
+        
+        p2pEngine.on('tracker_warning', (warning) => {
+          log(`⚠️ TRACKER WARNING: ${warning?.message || JSON.stringify(warning)}`, 'warn');
+        });
+        
+        // Peer errors
+        p2pEngine.on('peer_error', (error) => {
+          log(`❌ PEER ERROR: ${error?.message || JSON.stringify(error)}`, 'error');
+        });
+        
+        // Segment errors
+        p2pEngine.on('segment_error', (error) => {
+          log(`❌ SEGMENT ERROR: ${error?.message || JSON.stringify(error)}`, 'error');
+        });
+        
+        log('✅ P2P event listeners registered (with tracker diagnostics)', 'info');
+        
+        // Log the peer ID for debugging
+        setTimeout(() => {
+          try {
+            const details = p2pEngine.getDetails ? p2pEngine.getDetails() : {};
+            log(`🆔 My Peer ID: ${details?.peerId || 'unknown'}`, 'info');
+            log(`🔍 Engine details: ${JSON.stringify(details)}`, 'info');
+          } catch(e) {
+            log(`⚠️ Cannot get engine details: ${e.message}`, 'warn');
+          }
+        }, 2000);
+        
+        // Create HLS with P2P loader
+        const hlsConfig = p2pEngine.createLoaderClass();
+        
+        hls = new Hls({
+          ...hlsConfig,
+          liveSyncDuration: 3,
+          liveMaxLatencyDuration: 10,
+          backBufferLength: 30,
+          maxBufferLength: 30,
+          lowLatencyMode: true,
+        });
+        
+        // IMPORTANT: Attach HLS event listeners BEFORE loadSource/attachMedia
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          log('✅ Manifest loaded', 'info');
+          video.play().catch(err => {
+            log(`⚠️ Autoplay blocked: ${err.message}. Click video to play.`, 'warn');
+          });
+        });
+        
+        hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
+          log(`🔄 HLS: Loading fragment ${data.frag.sn}`, 'info');
+        });
+        
+        hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+          const size = data.stats?.total || data.frag?.stats?.total || 0;
+          log(`✅ HLS: Fragment ${data.frag.sn} loaded (${(size / 1024).toFixed(2)} KB)`, 'info');
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            log(`❌ Fatal HLS error: ${data.type} - ${data.details}`, 'error');
+            log(`   Error data: ${JSON.stringify(data)}`, 'error');
+            
+            switch(data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                log('Attempting to recover from network error...', 'warn');
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                log('Attempting to recover from media error...', 'warn');
+                hls.recoverMediaError();
+                break;
+              default:
+                log('Cannot recover, destroying HLS instance', 'error');
+                stopStream();
+                break;
+            }
+          } else {
+            // Log more details for non-fatal errors like internalException
+            if (data.details === 'internalException') {
+              log(`⚠️ HLS internalException - P2P loader error!`, 'warn');
+              if (data.error) {
+                log(`   Exception: ${data.error.message || data.error}`, 'error');
+                console.error('Full P2P loader exception:', data.error);
+              }
+              if (data.err) {
+                log(`   Error: ${data.err.message || data.err}`, 'error');
+                console.error('Full error object:', data.err);
+              }
+            } else {
+              log(`⚠️ HLS warning: ${data.details}`, 'warn');
+            }
+          }
+        });
+
+        // Load and play (AFTER event listeners are attached)
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        
+        // Periodic diagnostics
+        let diagnosticCount = 0;
+        const diagnosticInterval = setInterval(() => {
+          diagnosticCount++;
+          if (diagnosticCount % 10 === 0) { // Every 10 seconds
+            const peerCount = stats.peers;
+            if (peerCount === 0) {
+              log(`⚠️ No peers found yet. This is normal if you're the only viewer!`, 'warn');
+              log(`💡 Tip: Open this page in another browser/device to see P2P in action`, 'info');
+            }
+            log(`📊 P2P Stats: ${peerCount} peers, ${((stats.p2pDownloaded / 1024 / 1024) || 0).toFixed(2)} MB via P2P`, 'info');
+          }
+        }, 1000);
+
+        // Clean up on stop
+        const originalStop = window.stopStream;
+        window.stopStream = function() {
+          clearInterval(diagnosticInterval);
+          originalStop();
+        };
+
+        // Start stats updates
+        statsInterval = setInterval(updateStats, 1000);
+
+        log('▶️ Stream starting...', 'info');
+
+      } catch (err) {
+        log(`❌ Error initializing P2P: ${err.message}`, 'error');
+        playWithoutP2P(url, video);
+      }
+    }
+
+    // Fallback without P2P
+    function playWithoutP2P(url, video) {
+      hls = new Hls({
+        liveSyncDuration: 3,
+        liveMaxLatencyDuration: 10,
+        lowLatencyMode: true,
+      });
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play();
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          log(`❌ HLS error: ${data.details}`, 'error');
+        }
+      });
+
+      hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+        stats.httpDownloaded += data.frag.stats.total;
+        updateStats();
+      });
+
+      hls.loadSource(url);
+      hls.attachMedia(video);
+
+      statsInterval = setInterval(updateStats, 1000);
+    }
+
+    // Stop Stream
+    function stopStream() {
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+      
+      if (p2pEngine) {
+        p2pEngine.destroy();
+        p2pEngine = null;
+      }
+      
+      if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
+      }
+      
+      const video = document.getElementById('video');
+      video.pause();
+      video.src = '';
+      
+      stats.p2pDownloaded = 0;
+      stats.httpDownloaded = 0;
+      stats.peers = 0;
+      
+      updateStats();
+      
+      log('⏹️ Stream stopped', 'info');
+    }
+
+    // Update Stats
+    function updateStats() {
+      document.getElementById('peer-count').textContent = stats.peers;
+      document.getElementById('p2p-downloaded').textContent = (stats.p2pDownloaded / 1024 / 1024).toFixed(2) + ' MB';
+      document.getElementById('http-downloaded').textContent = (stats.httpDownloaded / 1024 / 1024).toFixed(2) + ' MB';
+      
+      const total = stats.p2pDownloaded + stats.httpDownloaded;
+      const p2pRatio = total > 0 ? (stats.p2pDownloaded / total * 100) : 0;
+      document.getElementById('p2p-ratio').textContent = p2pRatio.toFixed(0) + '%';
+      
+      const video = document.getElementById('video');
+      if (video.buffered.length > 0) {
+        const buffered = video.buffered.end(0) - video.currentTime;
+        document.getElementById('buffer').textContent = buffered.toFixed(1) + 's';
+      }
+      
+      // Latency (rough estimate)
+      if (hls && hls.latency) {
+        document.getElementById('latency').textContent = hls.latency.toFixed(1) + 's';
+      }
+    }
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => {
+      detectDevice();
+      log('🚀 P2P HLS tester ready', 'info');
+      
+      // Check if libraries loaded
+      setTimeout(() => {
+        if (typeof Hls === 'undefined') {
+          log('❌ HLS.js failed to load', 'error');
+        } else {
+          log('✅ HLS.js loaded successfully', 'info');
+        }
+        
+        if (typeof window.p2pml === 'undefined') {
+          log('❌ P2P Media Loader failed to load - will use HTTP only', 'error');
+          log('💡 This might be due to browser restrictions or CDN blocking', 'warn');
+        } else {
+          log('✅ P2P Media Loader loaded successfully', 'info');
+          // Check what's available in v2 API
+          log(`  Available: HlsJsP2PEngine=${!!window.p2pml?.hlsjs?.HlsJsP2PEngine}`, 'info');
+        }
+        
+        // Check WebRTC
+        if (!window.RTCPeerConnection) {
+          log('❌ WebRTC not available - P2P will not work', 'error');
+        } else {
+          log('✅ WebRTC available - P2P should work when multiple viewers present', 'info');
+        }
+        
+        log('ℹ️  P2P requires multiple viewers watching the same stream simultaneously', 'info');
+        log('💡 Open this page in multiple browsers/devices to test P2P peer connections', 'info');
+        
+        // Test WebRTC connectivity
+        log('🔍 Testing WebRTC connectivity...', 'info');
+        try {
+          const pc = new RTCPeerConnection({
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' }
+            ]
+          });
+          
+          pc.createDataChannel('test');
+          pc.createOffer().then(offer => {
+            return pc.setLocalDescription(offer);
+          }).then(() => {
+            log('✅ WebRTC: Can create offers and data channels', 'info');
+            
+            // Wait for ICE candidates
+            let candidateCount = 0;
+            pc.onicecandidate = (event) => {
+              if (event.candidate) {
+                candidateCount++;
+                if (candidateCount === 1) {
+                  log(`✅ WebRTC: ICE candidates generating (${event.candidate.type})`, 'info');
+                  log(`   Candidate: ${event.candidate.candidate.substring(0, 50)}...`, 'info');
+                }
+              } else if (candidateCount > 0) {
+                log(`✅ WebRTC: Generated ${candidateCount} ICE candidates total`, 'info');
+              } else {
+                log(`⚠️ WebRTC: No ICE candidates generated - NAT/firewall may block P2P`, 'warn');
+              }
+            };
+            
+            setTimeout(() => pc.close(), 3000);
+          }).catch(err => {
+            log(`❌ WebRTC offer creation failed: ${err.message}`, 'error');
+          });
+        } catch(e) {
+          log(`❌ WebRTC test failed: ${e.message}`, 'error');
+        }
+        
+        // Test tracker connectivity
+        log('🔍 Testing tracker connectivity...', 'info');
+        const testTrackers = [
+          'wss://tracker.openwebtorrent.com',
+          'wss://tracker.webtorrent.dev',
+          'wss://tracker.btorrent.xyz'
+        ];
+        
+        testTrackers.forEach(tracker => {
+          try {
+            const ws = new WebSocket(tracker);
+            const timeout = setTimeout(() => {
+              if (ws.readyState !== WebSocket.OPEN) {
+                log(`⚠️ Tracker timeout: ${tracker}`, 'warn');
+                ws.close();
+              }
+            }, 5000);
+            
+            ws.onopen = () => {
+              clearTimeout(timeout);
+              log(`✅ Tracker connected: ${tracker}`, 'info');
+              ws.close();
+            };
+            
+            ws.onerror = (err) => {
+              clearTimeout(timeout);
+              log(`❌ Tracker error: ${tracker} - ${err.message || 'connection failed'}`, 'error');
+            };
+            
+            ws.onclose = () => {
+              clearTimeout(timeout);
+            };
+          } catch(e) {
+            log(`❌ Cannot connect to tracker ${tracker}: ${e.message}`, 'error');
+          }
+        });
+      }, 2000);
+    });
+  </script>
+</body>
+</html>
+

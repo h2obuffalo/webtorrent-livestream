@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P v2.2.1 Test - Local Files</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0b0f14;
+      color: #e6eef7;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    video {
+      width: 100%;
+      background: #000;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    #log {
+      background: #000;
+      padding: 15px;
+      border-radius: 5px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+    .success { color: #4ade80; }
+    .error { color: #f87171; }
+    .warn { color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <h1>🚀 P2P v2.2.1 Test - Local Files</h1>
+  <p>Using locally downloaded v2.2.1 libraries</p>
+  
+  <video id="video" controls></video>
+  <div id="log"></div>
+
+  <!-- HLS.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+  
+  <!-- Import map to remap bare specifiers to local files -->
+  <script type="importmap">
+  {
+    "imports": {
+      "p2p-media-loader-core": "./lib/p2p-media-loader-core.min.js",
+      "p2p-media-loader-hlsjs": "./lib/p2p-media-loader-hlsjs.min.js"
+    }
+  }
+  </script>
+  
+  <!-- P2P Media Loader v2.2.1 - LOCAL FILES -->
+  <script type="module">
+    // Import as ES modules (now remapped via import map)
+    import { HlsJsP2PEngine } from 'p2p-media-loader-hlsjs';
+
+    function log(msg, type = 'info') {
+      const div = document.getElementById('log');
+      const className = type === 'error' ? 'error' : type === 'warn' ? 'warn' : type === 'success' ? 'success' : '';
+      div.innerHTML += `<div class="${className}">${new Date().toLocaleTimeString()}: ${msg}</div>`;
+      div.scrollTop = div.scrollHeight;
+      console.log(msg);
+    }
+
+    log('🔍 Checking libraries...');
+    log(`✅ HLS.js: ${typeof Hls !== 'undefined' ? 'loaded' : 'NOT loaded'}`, typeof Hls !== 'undefined' ? 'success' : 'error');
+    log(`✅ HlsJsP2PEngine: ${HlsJsP2PEngine ? 'loaded' : 'NOT loaded'}`, HlsJsP2PEngine ? 'success' : 'error');
+
+    if (!Hls || !HlsJsP2PEngine) {
+      log('❌ Required libraries not loaded!', 'error');
+      throw new Error('Libraries not loaded');
+    }
+
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    log('🎬 Initializing P2P HLS with v2.2.1...');
+
+    // Inject P2P mixin
+    HlsJsP2PEngine.injectMixin(Hls);
+    log('✅ P2P mixin injected');
+
+    const streamUrl = 'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8';
+
+    // Create HLS instance with P2P
+    const hls = new Hls({
+      debug: false,
+      p2p: {
+        core: {
+          swarmId: streamUrl,
+          trackerAnnounce: [
+            'wss://tracker.openwebtorrent.com',
+            'wss://tracker.webtorrent.dev',
+            'wss://tracker.fastcast.nz'
+          ]
+        },
+        onHlsJsCreated(hls) {
+          log('✅ HLS.js instance created with P2P');
+        }
+      }
+    });
+
+    log(`✅ HLS instance created`);
+
+    const video = document.getElementById('video');
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      log('✅ Manifest loaded - starting playback', 'success');
+      video.play().catch(err => {
+        log(`⚠️ Autoplay blocked: ${err.message}`, 'warn');
+      });
+    });
+
+    hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+      log(`✅ Fragment ${data.frag.sn} loaded (${(data.frag.stats.total / 1024).toFixed(2)} KB)`);
+    });
+
+    hls.on(Hls.Events.ERROR, (event, data) => {
+      if (data.fatal) {
+        log(`❌ Fatal error: ${data.type} - ${data.details}`, 'error');
+        switch(data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            log('⚠️ Recovering...', 'warn');
+            hls.startLoad();
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            log('⚠️ Recovering...', 'warn');
+            hls.recoverMediaError();
+            break;
+          default:
+            log('❌ Cannot recover', 'error');
+            break;
+        }
+      } else {
+        log(`⚠️ ${data.details}`, 'warn');
+      }
+    });
+
+    // Load stream
+    hls.loadSource(streamUrl);
+    hls.attachMedia(video);
+
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    log('💡 Open in multiple tabs to see P2P sharing!');
+  </script>
+</body>
+</html>
+

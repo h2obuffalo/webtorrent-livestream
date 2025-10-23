@@ -1,0 +1,29 @@
+version: '3.8'
+
+# Development override - use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  broadcaster:
+    build:
+      context: ./broadcaster
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for development
+    volumes:
+      # Mount source code for hot reload
+      - ./broadcaster:/app
+      - /app/node_modules
+      # Mount Owncast data
+      - ${OWNCAST_DATA_PATH:-./owncast/data/hls/0}:/data/hls:ro
+    environment:
+      - NODE_ENV=development
+      - ENABLE_DEBUG_LOGGING=true
+    command: npm run dev
+
+  signaling:
+    volumes:
+      - ./signaling:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+

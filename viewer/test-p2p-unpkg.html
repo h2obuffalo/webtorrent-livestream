@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P v2.2.1 Test - UNPKG CDN</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    video {
+      width: 100%;
+      max-width: 800px;
+      background: #000;
+    }
+    #log {
+      background: #000;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 5px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>P2P v2.2.1 Test - UNPKG CDN</h1>
+  <video id="video" controls></video>
+  <div id="log"></div>
+
+  <!-- Try UNPKG CDN instead of jsdelivr -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.10/dist/hls.min.js"></script>
+  <script src="https://unpkg.com/p2p-media-loader-core@2.2.1/build/p2p-media-loader-core.min.js"></script>
+  <script src="https://unpkg.com/p2p-media-loader-hlsjs@2.2.1/build/p2p-media-loader-hlsjs.min.js"></script>
+
+  <script>
+    function log(msg) {
+      const div = document.getElementById('log');
+      div.innerHTML += `${new Date().toLocaleTimeString()}: ${msg}<br>`;
+      div.scrollTop = div.scrollHeight;
+      console.log(msg);
+    }
+
+    log('🔍 Checking library loading...');
+    log(`HLS.js: ${typeof Hls !== 'undefined' ? '✅' : '❌'}`);
+    log(`p2pml: ${typeof p2pml !== 'undefined' ? '✅' : '❌'}`);
+    log(`p2pml.hlsjs: ${typeof p2pml?.hlsjs !== 'undefined' ? '✅' : '❌'}`);
+    log(`initHlsJsPlayer: ${typeof p2pml?.hlsjs?.initHlsJsPlayer !== 'undefined' ? '✅' : '❌'}`);
+
+    if (typeof p2pml !== 'undefined' && typeof p2pml.hlsjs !== 'undefined') {
+      log('✅ P2P Media Loader v2.2.1 loaded from UNPKG!');
+      
+      // Initialize
+      p2pml.hlsjs.initHlsJsPlayer(Hls);
+      log('✅ P2P mixin injected');
+
+      const hls = new Hls({
+        p2pConfig: {
+          core: {
+            swarmId: 'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8'
+          }
+        }
+      });
+
+      const video = document.getElementById('video');
+      hls.loadSource('https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8');
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        log('✅ Manifest loaded - stream ready!');
+        video.play();
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          log(`❌ Error: ${data.details}`);
+        }
+      });
+    } else {
+      log('❌ P2P Media Loader failed to load from UNPKG too!');
+      log('💡 Checking what loaded:');
+      log(`  window.p2pml = ${JSON.stringify(window.p2pml)}`);
+    }
+  </script>
+</body>
+</html>
+
