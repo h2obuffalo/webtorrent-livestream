@@ -1,3 +1,4 @@
 ---
 alwaysApply: true
 ---
+Don't make any files or commits with anything with the words fixed or 'should work' in it unless it's thuroughly tested
