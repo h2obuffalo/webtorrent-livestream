@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BangFace Live Stream - Full System Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: #fff;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Background with overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('https://www.bangface.com/images/background.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      opacity: 0.15;
+      z-index: -1;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.95) 100%);
+      z-index: -1;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      padding: 20px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      background: linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .subtitle {
+      color: #999;
+      font-size: 0.95rem;
+    }
+
+    /* System Status */
+    .status-bar {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .status-item {
+      padding: 8px 16px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #666;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .status-dot.connected {
+      background: #0f0;
+    }
+
+    .status-dot.error {
+      background: #f00;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Video Container */
+    .video-wrapper {
+      position: relative;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    }
+
+    .video-container {
+      position: relative;
+      aspect-ratio: 16/9;
+      background: #000;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      padding: 15px;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.secondary {
+      background: linear-gradient(135deg, #434343 0%, #000000 100%);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat-box {
+      background: rgba(0,0,0,0.6);
+      padding: 20px;
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .stat-label {
+      color: #999;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      color: #40e0d0;
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+      text-shadow: 0 2px 10px rgba(64,224,208,0.5);
+      font-family: 'Courier New', monospace;
+      min-height: 2.4rem;
+      line-height: 2.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat-detail {
+      color: #666;
+      font-size: 0.8rem;
+    }
+
+    /* Log Panel */
+    .log-panel {
+      background: rgba(0,0,0,0.8);
+      border-radius: 12px;
+      padding: 15px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-time {
+      color: #666;
+      margin-right: 10px;
+    }
+
+    .log-info {
+      color: #40e0d0;
+    }
+
+    .log-success {
+      color: #0f0;
+    }
+
+    .log-warn {
+      color: #ff8c00;
+    }
+
+    .log-error {
+      color: #f00;
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 1.8rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stat-value {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎵 BangFace Live Stream</h1>
+      <p class="subtitle">Full System Test - Owncast → Broadcaster → Signaling → Viewer</p>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-item">
+        <div class="status-dot" id="signaling-status"></div>
+        <span id="signaling-text">Signaling: Connecting...</span>
+      </div>
+      <div class="status-item">
+        <div class="status-dot" id="broadcaster-status"></div>
+        <span id="broadcaster-text">Broadcaster: Waiting...</span>
+      </div>
+      <div class="status-item">
+        <div class="status-dot" id="stream-status"></div>
+        <span id="stream-text">Stream: Not Started</span>
+      </div>
+    </div>
+
+    <div class="video-wrapper">
+      <div class="video-container">
+        <video id="video" playsinline></video>
+      </div>
+      <div class="controls">
+        <button onclick="startStream()">▶️ Start Stream</button>
+        <button onclick="stopStream()" class="secondary">⏹️ Stop</button>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-label">📡 Chunks from Broadcaster</div>
+        <div class="stat-value" id="chunks-received">0</div>
+        <div class="stat-detail">Via signaling server</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-label">📊 Latest Chunk</div>
+        <div class="stat-value" id="latest-chunk">-</div>
+        <div class="stat-detail">Filename</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-label">⏱️ Latency</div>
+        <div class="stat-value" id="latency">-</div>
+        <div class="stat-detail">Time since last chunk</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-label">🎬 Stream Type</div>
+        <div class="stat-value" id="stream-type">HLS</div>
+        <div class="stat-detail">Via R2 CDN</div>
+      </div>
+    </div>
+
+    <div class="log-panel" id="log"></div>
+  </div>
+
+  <!-- HLS.js -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+
+  <script>
+    // Configuration
+    const SIGNALING_URL = location.protocol === 'https:' 
+      ? 'wss://tv.danpage.uk/ws' 
+      : 'ws://localhost:8081';
+    
+    const STREAM_URL = 'https://tv.danpage.uk/live/stream.m3u8'; // R2 CDN
+
+    // State
+    let ws = null;
+    let hls = null;
+    let chunks = [];
+    let latestChunkTime = null;
+
+    // Elements
+    const video = document.getElementById('video');
+    const logPanel = document.getElementById('log');
+    const signalingStatus = document.getElementById('signaling-status');
+    const signalingText = document.getElementById('signaling-text');
+    const broadcasterStatus = document.getElementById('broadcaster-status');
+    const broadcasterText = document.getElementById('broadcaster-text');
+    const streamStatus = document.getElementById('stream-status');
+    const streamText = document.getElementById('stream-text');
+    const chunksReceived = document.getElementById('chunks-received');
+    const latestChunk = document.getElementById('latest-chunk');
+    const latencyEl = document.getElementById('latency');
+
+    // Logging
+    function log(message, type = 'info') {
+      const now = new Date();
+      const time = now.toTimeString().split(' ')[0];
+      
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-time">${time}</span> ${message}`;
+      
+      logPanel.appendChild(entry);
+      logPanel.scrollTop = logPanel.scrollHeight;
+      
+      // Keep only last 50 entries
+      while (logPanel.children.length > 50) {
+        logPanel.removeChild(logPanel.firstChild);
+      }
+      
+      console.log(`[${type.toUpperCase()}]`, message);
+    }
+
+    // Connect to signaling server
+    function connectSignaling() {
+      log(`🔌 Connecting to signaling: ${SIGNALING_URL}`, 'info');
+      
+      try {
+        ws = new WebSocket(SIGNALING_URL);
+
+        ws.onopen = () => {
+          log('✅ Connected to signaling server', 'success');
+          signalingStatus.className = 'status-dot connected';
+          signalingText.textContent = 'Signaling: Connected';
+          
+          // Identify as viewer
+          ws.send(JSON.stringify({ type: 'identify', role: 'viewer' }));
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            handleSignalingMessage(data);
+          } catch (err) {
+            log(`⚠️ Failed to parse message: ${err.message}`, 'warn');
+          }
+        };
+
+        ws.onerror = (err) => {
+          log(`❌ Signaling error: ${err.message || 'Connection failed'}`, 'error');
+          signalingStatus.className = 'status-dot error';
+          signalingText.textContent = 'Signaling: Error';
+        };
+
+        ws.onclose = () => {
+          log('🔌 Signaling connection closed', 'warn');
+          signalingStatus.className = 'status-dot';
+          signalingText.textContent = 'Signaling: Disconnected';
+          
+          // Reconnect after 5 seconds
+          setTimeout(connectSignaling, 5000);
+        };
+
+      } catch (err) {
+        log(`❌ Failed to connect to signaling: ${err.message}`, 'error');
+        signalingStatus.className = 'status-dot error';
+        signalingText.textContent = 'Signaling: Failed';
+      }
+    }
+
+    // Handle signaling messages
+    function handleSignalingMessage(data) {
+      switch (data.type) {
+        case 'chunk':
+          // Received chunk info from broadcaster
+          chunks.push(data);
+          chunksReceived.textContent = chunks.length;
+          latestChunk.textContent = data.filename || 'Unknown';
+          latestChunkTime = Date.now();
+          
+          log(`📦 New chunk: ${data.filename} (${(data.size / 1024).toFixed(1)}KB)`, 'success');
+          
+          // Update broadcaster status
+          broadcasterStatus.className = 'status-dot connected';
+          broadcasterText.textContent = 'Broadcaster: Active';
+          break;
+
+        case 'manifest':
+          log(`📋 Manifest update: ${data.chunks?.length || 0} chunks available`, 'info');
+          break;
+
+        case 'welcome':
+          log(`👋 ${data.message}`, 'info');
+          break;
+
+        default:
+          log(`📨 Unknown message type: ${data.type}`, 'warn');
+      }
+    }
+
+    // Start stream
+    window.startStream = function() {
+      if (hls) {
+        log('⚠️ Stream already running', 'warn');
+        return;
+      }
+
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      log('🎬 Starting stream...', 'info');
+      log(`📺 Stream URL: ${STREAM_URL}`, 'info');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+
+      if (Hls.isSupported()) {
+        hls = new Hls({
+          debug: false,
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 90
+        });
+
+        hls.loadSource(STREAM_URL);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          log('✅ HLS manifest loaded', 'success');
+          streamStatus.className = 'status-dot connected';
+          streamText.textContent = 'Stream: Playing';
+          
+          video.play().catch(err => {
+            log(`⚠️ Autoplay blocked - click play button`, 'warn');
+          });
+        });
+
+        hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+          const size = data.frag.stats.total;
+          log(`📥 Fragment loaded: ${(size / 1024).toFixed(1)}KB via HTTP`, 'info');
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            log(`❌ Fatal HLS error: ${data.type} - ${data.details}`, 'error');
+            streamStatus.className = 'status-dot error';
+            streamText.textContent = 'Stream: Error';
+            
+            switch(data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                log('🔄 Attempting to recover from network error...', 'warn');
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                log('🔄 Attempting to recover from media error...', 'warn');
+                hls.recoverMediaError();
+                break;
+              default:
+                log('💥 Unrecoverable error, destroying HLS instance', 'error');
+                hls.destroy();
+                hls = null;
+                break;
+            }
+          }
+        });
+
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari)
+        video.src = STREAM_URL;
+        video.addEventListener('loadedmetadata', () => {
+          log('✅ HLS loaded (native)', 'success');
+          streamStatus.className = 'status-dot connected';
+          streamText.textContent = 'Stream: Playing';
+          video.play();
+        });
+      } else {
+        log('❌ HLS not supported in this browser', 'error');
+      }
+    };
+
+    // Stop stream
+    window.stopStream = function() {
+      log('⏹️ Stopping stream...', 'info');
+      
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+      
+      video.pause();
+      video.src = '';
+      
+      streamStatus.className = 'status-dot';
+      streamText.textContent = 'Stream: Stopped';
+      
+      log('✅ Stream stopped', 'success');
+    };
+
+    // Update latency display
+    setInterval(() => {
+      if (latestChunkTime) {
+        const seconds = (Date.now() - latestChunkTime) / 1000;
+        latencyEl.textContent = seconds.toFixed(1) + 's';
+        
+        if (seconds > 30) {
+          broadcasterStatus.className = 'status-dot';
+          broadcasterText.textContent = 'Broadcaster: Idle';
+        }
+      }
+    }, 1000);
+
+    // Initialize
+    log('🚀 Owncast Live Stream Test Ready!', 'success');
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+    log('📋 Testing full pipeline:', 'info');
+    log('   OBS → Owncast → Broadcaster → R2 → Viewer', 'info');
+    log('   With signaling server coordination', 'info');
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+    
+    // Connect to signaling on load
+    connectSignaling();
+  </script>
+</body>
+</html>
+
