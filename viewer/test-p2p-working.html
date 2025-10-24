@@ -148,8 +148,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>🎉 P2P HLS v2.2.1 - WORKING!</h1>
-    <p class="subtitle">Fixed with injectMixin - P2P is now active</p>
+    <h1>🎉 P2P HLS with CDN Offload Stats</h1>
+    <p class="subtitle">Live P2P bandwidth sharing • Real-time cost savings tracking</p>
 
     <button onclick="playStream()">▶️ Start Stream</button>
     <button onclick="stopStream()">⏹️ Stop</button>
@@ -189,6 +189,16 @@
         <div class="stat-value" id="total-frags">0</div>
         <div class="stat-detail">Loaded so far</div>
       </div>
+      <div class="stat-box highlight">
+        <div class="stat-label">💰 CDN Offload</div>
+        <div class="stat-value good" id="cdn-saved">0 MB</div>
+        <div class="stat-detail" id="cdn-saved-percent">0% saved from CDN</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Est. Cost Savings</div>
+        <div class="stat-value good" id="cost-saved">$0.00</div>
+        <div class="stat-detail">@ $0.10/GB egress</div>
+      </div>
     </div>
 
     <div class="log" id="log"></div>
@@ -211,7 +221,7 @@
     let hls = null;
     let p2pEngine = null;
     let lastLogTime = 0;
-    const LOG_THROTTLE = 1000; // Only log every 1 second max for chunks
+    const LOG_THROTTLE = 3000; // Only log every 3 seconds max for chunks
     
     const stats = {
       peers: new Set(),
@@ -235,7 +245,8 @@
       logPanel.appendChild(entry);
       logPanel.scrollTop = logPanel.scrollHeight;
       
-      while (logPanel.children.length > 50) {
+      // Keep only last 30 entries for smoother performance
+      while (logPanel.children.length > 30) {
         logPanel.removeChild(logPanel.firstChild);
       }
       
@@ -278,6 +289,14 @@
       } else {
         ratioEl.className = 'stat-value warn';
       }
+      
+      // CDN Offload stats (P2P bytes = bandwidth saved from CDN)
+      document.getElementById('cdn-saved').textContent = p2pMB.toFixed(2) + ' MB';
+      document.getElementById('cdn-saved-percent').textContent = ratio.toFixed(1) + '% saved from CDN';
+      
+      // Cost savings (typical CDN egress: $0.10/GB, R2 is cheaper but using CDN rate)
+      const costSaved = (p2pMB / 1024) * 0.10; // MB to GB, then * $0.10
+      document.getElementById('cost-saved').textContent = '$' + costSaved.toFixed(4);
     }
 
     window.playStream = function() {
@@ -408,8 +427,8 @@
         
         log('💡 Open 2-3 more tabs to see peers connect and P2P ratio increase!', 'info');
 
-        // Update stats every second
-        setInterval(updateStats, 1000);
+        // Update stats every 2 seconds (smoother, less stuttering)
+        setInterval(updateStats, 2000);
 
       } catch (err) {
         log(`❌ Error: ${err.message}`, 'error');
@@ -433,7 +452,17 @@
       video.src = '';
       
       log('⏹️ Stream stopped', 'info');
-      log(`📊 Final stats: P2P=${(stats.p2pBytes/1024/1024).toFixed(2)}MB, HTTP=${(stats.httpBytes/1024/1024).toFixed(2)}MB, Peers=${stats.peers.size}`, 'success');
+      
+      const p2pMB = stats.p2pBytes / 1024 / 1024;
+      const httpMB = stats.httpBytes / 1024 / 1024;
+      const totalMB = p2pMB + httpMB;
+      const ratio = totalMB > 0 ? (p2pMB / totalMB * 100) : 0;
+      const costSaved = (p2pMB / 1024) * 0.10;
+      
+      log(`📊 Final Stats:`, 'success');
+      log(`  💚 P2P: ${p2pMB.toFixed(2)}MB | 🌐 HTTP: ${httpMB.toFixed(2)}MB | Total: ${totalMB.toFixed(2)}MB`, 'info');
+      log(`  🎯 P2P Ratio: ${ratio.toFixed(1)}% | 💰 CDN Offload: ${p2pMB.toFixed(2)}MB saved (~$${costSaved.toFixed(4)})`, 'info');
+      log(`  👥 Peak Peers: ${stats.peers.size} | 📤 Uploaded: ${(stats.p2pUploaded/1024/1024).toFixed(2)}MB`, 'info');
     };
 
     window.addEventListener('DOMContentLoaded', () => {
