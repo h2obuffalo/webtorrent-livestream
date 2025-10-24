@@ -1264,14 +1264,613 @@ flutter run --profile
 
 ---
 
+## 🍎 iOS Support: The Reality Check
+
+### Executive Summary
+
+**Flutter works great on iOS, but distribution is complex. Recommendation: Android-first, iOS later (if at all).**
+
+---
+
+### ✅ Technical: iOS Works Perfectly
+
+**Good News - Code Reuse:**
+- ✅ Same Flutter codebase works on iOS (95%+ reuse)
+- ✅ `flutter_webrtc` fully supports iOS (native WebRTC)
+- ✅ `better_player` works on iOS (uses AVPlayer)
+- ✅ P2P connections work identically to Android
+- ✅ Performance excellent on iOS devices
+
+**What Just Works:**
+```bash
+# Enable iOS in your Flutter project
+flutter build ios
+
+# That's it - your Android app now runs on iOS!
+```
+
+**Platform-Specific Changes Needed:**
+```dart
+// Minimal iOS-specific code
+if (Platform.isIOS) {
+  // iOS uses AirPlay instead of Chromecast
+  // (see casting section below)
+  
+  // Request iOS permissions
+  await requestIOSPermissions();
+  
+  // Enable background audio
+  await setupBackgroundAudio();
+}
+```
+
+**Effort to Add iOS:** ~1 week (mostly distribution setup, not code)
+
+---
+
+### ⚠️ Distribution: Where It Gets Complicated
+
+#### The Problem: No True "Private" Apps on iOS
+
+**Android (Google Play):**
+- ✅ Closed testing track → 2000+ users
+- ✅ Unlisted apps
+- ✅ Easy invite system
+- ✅ Permanent solution
+
+**iOS (App Store):**
+- ❌ No "unlisted" apps
+- ❌ All apps are public and searchable
+- ❌ Can add login, but app is still visible
+- ⚠️ TestFlight is the only truly private option
+
+---
+
+#### Option 1: TestFlight (90-Day Beta Testing)
+
+**What is TestFlight?**
+- Apple's beta testing platform
+- 10,000 external testers
+- Builds expire after 90 days
+- Light review (hours, not days)
+
+**The User Experience Problem:**
+
+> **"It just works" - Steve Jobs**
+> 
+> TestFlight does NOT "just work" for average users.
+
+**What users must do:**
+1. Install TestFlight app from App Store
+2. Receive invitation email
+3. Click invitation link
+4. Open in TestFlight app (confusing!)
+5. Click "Install" in TestFlight
+6. Wait for download
+7. Open app from TestFlight (not home screen initially)
+8. Remember it expires in 90 days
+9. Update when you push new build
+
+**Compare to Android:**
+1. Click Play Store link
+2. Install
+3. Done.
+
+**Why This Matters:**
+
+As you said (paraphrasing Steve Jobs): **iOS users expect things to just work.** TestFlight is:
+- ❌ Confusing for non-technical users
+- ❌ Extra app to install
+- ❌ Expiration = broken app after 90 days
+- ❌ Updates via TestFlight (not automatic)
+- ❌ "Beta" stigma (feels unfinished)
+
+**Who TestFlight Works For:**
+- ✅ Technical users (developers, power users)
+- ✅ Internal team testing
+- ✅ Close friends who you can guide
+- ❌ **NOT for average event attendees**
+- ❌ **NOT for "it just works" expectations**
+
+**Your Instinct is Correct:**
+> "I wouldn't want to use it publicly without a big disclaimer saying only for more technical people"
+
+**Recommendation:** 
+- 🟢 Use TestFlight for internal testing only
+- 🔴 Don't rely on it for public events with iOS users
+- 🟡 Only offer to tech-savvy iOS users who understand beta apps
+
+---
+
+#### Option 2: Public App Store (Permanent)
+
+**The Review Gauntlet:**
+
+**Apple Will Ask:**
+- "Why is login required?"
+- "What content will be streamed?"
+- "Who can access this?"
+- "Why should this be on the App Store?"
+- "Is this just for private events?" (red flag!)
+
+**Review Challenges:**
+- ⚠️ Must justify private/VIP access model
+- ⚠️ Content must follow strict guidelines
+- ⚠️ Can't be "empty" app that only works for select users
+- ⚠️ Must prove value to general public
+- ⚠️ 3-7 day review (vs 1-3 days Android)
+- ⚠️ High rejection rate for "private" apps
+
+**Getting Approved:**
+
+Strategy that might work:
+```
+App Description:
+"Event Streaming Platform for live music and entertainment events. 
+Access requires event registration. Provides high-quality P2P-accelerated 
+streaming for reduced bandwidth costs and improved viewing experience."
+
+Reviewer Notes:
+"Login required for access control to ticketed events. Test credentials: 
+username: reviewer@apple.com / password: ReviewTest123. App demonstrates 
+P2P streaming technology with HTTP fallback."
+```
+
+**Even If Approved:**
+- ⚠️ App is publicly listed and searchable
+- ⚠️ Anyone can download (just can't use without login)
+- ⚠️ Public reviews (confused users might leave 1-star)
+- ⚠️ Must maintain "public value" narrative
+
+**Verdict:** 
+- 🟡 Possible but risky
+- 🟡 Requires careful positioning
+- 🟡 Only if you need permanent iOS distribution
+- 🔴 Not recommended for "private events only" use case
+
+---
+
+#### Option 3: Apple Developer Enterprise Program
+
+**What It Is:**
+- Distribute apps to your company employees only
+- No App Store listing
+- Internal distribution
+
+**Why It Won't Work:**
+- ❌ Requires 100+ employees
+- ❌ Only for your own employees
+- ❌ Event attendees don't qualify
+- ❌ $299/year
+- ❌ Apple audits and terminates violators
+- 🔴 **Not an option for your use case**
+
+---
+
+### 📺 Apple TV vs Fire TV
+
+**Flutter Support Comparison:**
+
+| Feature | Fire TV (Android) | Apple TV (tvOS) |
+|---------|-------------------|-----------------|
+| **Flutter Support** | ✅ Excellent | ⚠️ Experimental |
+| **Code Reuse** | ✅ 100% | ⚠️ 70-80% |
+| **Navigation** | D-pad (familiar) | Siri Remote (swipe) |
+| **Build Target** | Same as phone | Separate target |
+| **Maturity** | Production-ready | Beta quality |
+| **Examples** | Many | Few |
+
+**Apple TV Challenges:**
+- ⚠️ Different UI guidelines
+- ⚠️ Focus system works differently
+- ⚠️ Less Flutter support
+- ⚠️ More testing required
+- ⚠️ Separate App Store submission
+
+**Recommendation:** 🔴 **Skip Apple TV entirely**
+- Fire TV covers the TV use case
+- Apple TV is 10% of TV market
+- Not worth the complexity
+- Users with Apple TV can AirPlay from iPhone
+
+---
+
+### 📱 Chromecast vs AirPlay
+
+**The Casting Divide:**
+
+**Android: Full P2P Casting**
+```dart
+// flutter_cast works great
+CastButton(size: 40, color: Colors.white)
+
+// App proxies P2P chunks to Chromecast
+// Full P2P benefits maintained
+```
+
+**iOS: AirPlay Limitations**
+```dart
+// No flutter_cast support on iOS
+// Must use built-in AirPlay
+
+// Better_player includes AirPlay button automatically
+// BUT: AirPlay will use HTTP fallback, not P2P
+```
+
+**What This Means:**
+
+| Scenario | P2P Works? | Quality |
+|----------|-----------|---------|
+| Android phone screen | ✅ Yes | Best |
+| Android → Chromecast | ✅ Yes (via proxy) | Best |
+| iOS phone screen | ✅ Yes | Best |
+| iOS → AirPlay | ❌ No (HTTP fallback) | Good |
+
+**Why AirPlay Can't Do P2P:**
+- AirPlay protocol is closed/proprietary
+- Can't intercept and proxy like Chromecast
+- Would need to transcode on device (complex)
+- No Flutter package supports this
+
+**Solution for iOS Users:**
+1. **Best:** Watch on iPhone/iPad (P2P works!)
+2. **Good:** AirPlay to Apple TV (uses HTTP, still works)
+3. **Note:** Casting loses P2P benefit, but still functional
+
+**Verdict:** 
+- ✅ iOS phone/tablet viewing is excellent
+- ⚠️ AirPlay is HTTP-only (acceptable fallback)
+- 🎯 Main value: P2P on iOS devices themselves
+
+---
+
+### 💰 Cost Analysis
+
+**Annual Costs:**
+
+| Store | Fee | Review Speed | Private Distribution |
+|-------|-----|--------------|---------------------|
+| Google Play | $25 (one-time) | 1-3 days | ✅ Easy |
+| Amazon (Fire TV) | $99/year | 3-5 days | ✅ Possible |
+| Apple App Store | $99/year | 3-7 days | ⚠️ TestFlight only |
+
+**Total Cost Scenarios:**
+
+1. **Android Only:** $25 + $99 = **$124 one-time**
+2. **+ iOS (TestFlight):** +$99/year = **$223/year**
+3. **+ iOS (App Store):** +$99/year = **$223/year** (same cost, more hassle)
+
+**Return on Investment:**
+
+For your use case (BangFace events):
+- Android covers: Android phones + Fire TV + Chromecast
+- iOS adds: iPhone/iPad viewing (no Apple TV, limited AirPlay)
+- Cost: +$99/year + complexity
+- User experience: Worse (TestFlight) or risky (App Store)
+
+**Question:** Is iOS worth it?
+- ✅ If 30%+ of your audience uses iPhone
+- ❌ If most users have Android
+- ⚠️ If you have budget/time for TestFlight management
+
+---
+
+### 🎯 Recommended Strategy: Android-First
+
+**Phase-Based Approach:**
+
+#### Phase 1: Android Only (Weeks 1-8)
+```
+Build:
+  ├─ Android phone app ✅
+  ├─ Fire TV app (same code) ✅
+  └─ Chromecast (full P2P) ✅
+
+Covers:
+  ├─ Android users (60-70% of market)
+  ├─ TV viewing (Fire TV)
+  └─ Casting (Chromecast)
+
+Distribution:
+  ├─ Google Play (closed testing)
+  └─ Amazon App Store
+```
+
+**Benefits:**
+- ✅ Faster development (no iOS complications)
+- ✅ Easier distribution (no TestFlight confusion)
+- ✅ Lower cost ($124 vs $223)
+- ✅ Better user experience ("it just works")
+- ✅ Covers majority of users
+
+---
+
+#### Phase 2: iOS Testing (Week 9+) - OPTIONAL
+
+**Only if:**
+- ✅ Android version is stable
+- ✅ Significant iOS user demand
+- ✅ Budget for $99/year
+- ✅ Time to manage TestFlight
+
+**Approach:**
+```dart
+// Enable iOS (literally minutes)
+flutter build ios
+
+// Test internally first
+// Use TestFlight with tech-savvy users
+// Gather feedback
+// Decide if worth public rollout
+```
+
+**TestFlight Warning:**
+> "⚠️ TestFlight Build - For Technical Users Only"
+> 
+> "This is a beta test build that expires in 90 days. You'll need 
+> to install the TestFlight app first, and update periodically. 
+> If you're not comfortable with beta software, please use the 
+> Android app or wait for wider iOS availability."
+
+---
+
+#### Phase 3: iOS App Store (Optional Future)
+
+**Only pursue if:**
+- ✅ TestFlight successful
+- ✅ Can position as "public" streaming platform
+- ✅ Ready for strict review
+- ✅ Can handle public scrutiny
+
+**Risk Assessment:**
+- 🟡 Medium rejection risk
+- 🟡 Requires marketing as "public" service
+- 🟡 Must add general value, not just private events
+- 🔴 High complexity for uncertain benefit
+
+---
+
+### 📊 iOS vs Android: Final Comparison
+
+**For Your BangFace Live Streaming App:**
+
+| Aspect | Android | iOS | Winner |
+|--------|---------|-----|--------|
+| **Development** | | | |
+| Flutter Support | ✅ Excellent | ✅ Excellent | 🤝 Tie |
+| WebRTC/P2P | ✅ Full | ✅ Full | 🤝 Tie |
+| Video Player | ✅ ExoPlayer | ✅ AVPlayer | 🤝 Tie |
+| Code Reuse | 100% | ✅ 95% | 🤝 Tie |
+| **User Experience** | | | |
+| P2P on Device | ✅ Yes | ✅ Yes | 🤝 Tie |
+| Casting with P2P | ✅ Chromecast | ❌ AirPlay (HTTP) | ✅ Android |
+| TV Support | ✅ Fire TV | ⚠️ Apple TV (hard) | ✅ Android |
+| **Distribution** | | | |
+| Private Testing | ✅ Easy | ⚠️ TestFlight (confusing) | ✅ Android |
+| Private Production | ✅ Closed Track | ❌ TestFlight only (90 days) | ✅ Android |
+| Public Store | ✅ Less strict | ⚠️ Very strict | ✅ Android |
+| User Install UX | ✅ "Just works" | ❌ TestFlight steps | ✅ Android |
+| Review Time | 🟢 1-3 days | 🔴 3-7 days | ✅ Android |
+| **Cost** | | | |
+| Setup Cost | $25 one-time | $99/year | ✅ Android |
+| Ongoing | $0 | $99/year | ✅ Android |
+| **Market** | | | |
+| UK Market Share | ~60-70% | ~30-40% | ✅ Android |
+| Event Attendees | Likely majority | Minority | ✅ Android |
+
+**Overall Winner: Android** 🏆
+
+---
+
+### 💡 The Steve Jobs Perspective
+
+You mentioned paraphrasing Steve Jobs - here's the context:
+
+> "It just works." - Steve Jobs
+
+**Apple's Philosophy:**
+- Simple, intuitive, magical
+- No technical knowledge required
+- "Appliances" not computers
+- Remove complexity from users
+
+**TestFlight Violates This:**
+- Requires technical understanding
+- Multi-step installation process
+- Temporary/expiring builds
+- "Beta" implies unfinished
+- Extra app requirement
+
+**Steve Jobs would hate TestFlight for public distribution.**
+
+**The Irony:**
+- iOS users expect "it just works"
+- TestFlight decidedly doesn't "just work"
+- Android's Play Store is actually simpler!
+
+**Your Observation is Spot-On:**
+> "Not being too broad, but iOS users are often not the technical people"
+
+This is by design! Apple markets to mainstream, non-technical users. Those users will struggle with TestFlight.
+
+---
+
+### ✅ Final iOS Recommendation
+
+**Don't Build for iOS Initially Because:**
+
+1. **Distribution is problematic**
+   - TestFlight confuses non-technical users
+   - 90-day expiration is unacceptable
+   - App Store review is risky for "private" apps
+
+2. **Limited casting benefit**
+   - AirPlay doesn't support P2P proxy
+   - Main benefit (iPhone viewing) is nice-to-have
+
+3. **Android covers most needs**
+   - Majority market share
+   - Better distribution options
+   - Full feature set (casting included)
+   - Fire TV for big screen
+
+4. **Complexity isn't worth it**
+   - +$99/year
+   - +1 week development
+   - +Ongoing TestFlight management
+   - +User confusion
+
+**When to Consider iOS:**
+
+✅ **Do add iOS if:**
+- 40%+ of your audience demands it
+- You have budget and time
+- You're comfortable with TestFlight limitations
+- You clearly communicate "beta/technical users only"
+
+❌ **Don't add iOS if:**
+- Android covers your audience
+- You want "it just works" UX
+- Budget/time is limited
+- You can't manage 90-day updates
+
+---
+
+### 🎬 Phased Rollout Plan
+
+**Recommended Timeline:**
+
+```
+Month 1-2: Build Android App
+  ├─ Phone + Tablet + Fire TV
+  ├─ Full P2P + Chromecast
+  └─ Play Store + Amazon Store
+
+Month 3: First Event with Android
+  ├─ Real-world testing
+  ├─ Gather feedback
+  └─ Iterate based on usage
+
+Month 4+: Evaluate iOS
+  ├─ What % of attendees requested iOS?
+  ├─ Can you support TestFlight complexity?
+  ├─ Is the cost justified?
+  └─ Decision: Add iOS or stay Android-only
+
+IF adding iOS:
+Month 5: Build iOS (TestFlight)
+  ├─ Enable iOS in Flutter (1 week)
+  ├─ Internal testing
+  ├─ Limited TestFlight rollout
+  └─ Clear "technical users only" messaging
+
+Month 6+: Monitor iOS Usage
+  ├─ Is TestFlight working?
+  ├─ Are users confused?
+  ├─ Is it worth maintaining?
+  └─ Decide: Continue, App Store, or sunset iOS
+```
+
+---
+
+### 📝 iOS Code Considerations
+
+**Minimal iOS-specific code needed:**
+
+```dart
+import 'dart:io' show Platform;
+
+// Platform detection
+final bool isIOS = Platform.isIOS;
+final bool isAndroid = Platform.isAndroid;
+
+// Casting logic
+void initializeCasting() {
+  if (isAndroid) {
+    // Initialize Chromecast with P2P proxy
+    _initializeChromecast();
+  } else if (isIOS) {
+    // Use built-in AirPlay (HTTP fallback)
+    // Better_player handles this automatically
+    print('AirPlay available via player controls');
+  }
+}
+
+// Permissions
+Future<void> requestPermissions() async {
+  if (isIOS) {
+    // iOS-specific permission requests
+    await _requestIOSPermissions();
+  } else if (isAndroid) {
+    // Android-specific permissions
+    await _requestAndroidPermissions();
+  }
+}
+
+// Background audio (for iOS)
+Future<void> setupBackgroundMode() async {
+  if (isIOS) {
+    // Enable iOS background audio mode
+    // Required for audio to continue when app backgrounded
+    await _setupIOSBackgroundAudio();
+  }
+}
+```
+
+**Info.plist (iOS) additions:**
+```xml
+<!-- iOS permissions -->
+<key>NSCameraUsageDescription</key>
+<string>Required for video streaming</string>
+
+<key>NSMicrophoneUsageDescription</key>
+<string>Required for audio streaming</string>
+
+<!-- Background audio -->
+<key>UIBackgroundModes</key>
+<array>
+  <string>audio</string>
+</array>
+
+<!-- Allow local network (for P2P) -->
+<key>NSLocalNetworkUsageDescription</key>
+<string>Required for peer-to-peer streaming</string>
+```
+
+**That's it!** 95%+ of your code is shared.
+
+---
+
+### 🎯 TL;DR: iOS Summary
+
+| Question | Answer | Recommendation |
+|----------|--------|----------------|
+| **Does Flutter work on iOS?** | ✅ Yes | Use same code |
+| **Does P2P work on iOS?** | ✅ Yes | Works great |
+| **Can I distribute privately?** | ⚠️ TestFlight only (90 days) | ❌ Not ideal |
+| **Is TestFlight user-friendly?** | ❌ No (confusing) | ❌ Not for public |
+| **Can I do App Store?** | ⚠️ Yes, but risky | 🟡 Maybe later |
+| **Does AirPlay support P2P?** | ❌ No (HTTP only) | ⚠️ Acceptable |
+| **Should I build iOS version?** | 🟡 Maybe later | ❌ Not initially |
+| **What's the cost?** | $99/year | Evaluate ROI |
+
+**Final Verdict:** 
+- 🟢 **Build for Android first**
+- 🟡 **Consider iOS later if demand justifies**
+- 🔴 **Don't rely on TestFlight for public events**
+- ✅ **Android provides better UX for your use case**
+
+---
+
 ## 🚀 Next Steps
 
 1. **Create Flutter project** - `flutter create bangface_live`
 2. **Add packages** - WebRTC, better_player, cast
 3. **Start with Phase 1** - get HLS playing
-4. **Iterate quickly** - hot reload is your friend
-5. **Test on real devices** - phone + Fire TV
+4. **Focus on Android** - phone + Fire TV
+5. **Test on real devices** - Android first
 6. **Deploy to stores** - Play + Amazon
+7. **Evaluate iOS later** - based on Android success
 
 ---
 
