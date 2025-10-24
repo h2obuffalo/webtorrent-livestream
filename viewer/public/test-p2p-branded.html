@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BangFace Live Stream - P2P</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: #fff;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Background image with overlay - TODO: Replace with actual Bangface background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('https://www.bangface.com/images/background.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      opacity: 0.15;
+      z-index: -1;
+    }
+
+    /* Dark overlay for readability */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.95) 100%);
+      z-index: -1;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      padding: 20px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      background: linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .subtitle {
+      color: #999;
+      font-size: 0.95rem;
+    }
+
+    /* Video Container */
+    .video-wrapper {
+      position: relative;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    }
+
+    .video-container {
+      position: relative;
+      aspect-ratio: 16/9;
+      background: #000;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+
+    /* Custom Play Button Overlay */
+    .play-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.3);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 5;
+    }
+
+    .play-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .play-overlay:hover {
+      background: rgba(0,0,0,0.5);
+    }
+
+    .play-button {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff0080 0%, #ff8c00 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 30px rgba(255,0,128,0.6);
+      transition: all 0.3s ease;
+    }
+
+    .play-overlay:hover .play-button {
+      transform: scale(1.1);
+      box-shadow: 0 12px 40px rgba(255,0,128,0.8);
+    }
+
+    .play-button::after {
+      content: '';
+      width: 0;
+      height: 0;
+      border-left: 30px solid white;
+      border-top: 20px solid transparent;
+      border-bottom: 20px solid transparent;
+      margin-left: 8px;
+    }
+
+    /* Controls Bar */
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      padding: 15px;
+      background: rgba(0,0,0,0.9);
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: linear-gradient(135deg, #ff0080 0%, #ff8c00 100%);
+      color: #fff;
+      border: none;
+      padding: 12px 28px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(255,0,128,0.4);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255,0,128,0.6);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.secondary {
+      background: linear-gradient(135deg, #333 0%, #555 100%);
+      box-shadow: 0 4px 15px rgba(255,255,255,0.1);
+    }
+
+    button.secondary:hover {
+      box-shadow: 0 6px 20px rgba(255,255,255,0.2);
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat-box {
+      background: rgba(20, 20, 30, 0.85);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .stat-box:hover {
+      transform: translateY(-3px);
+      border-color: rgba(255,0,128,0.5);
+      box-shadow: 0 8px 25px rgba(255,0,128,0.2);
+    }
+
+    .stat-box.highlight {
+      border-color: #ff0080;
+      box-shadow: 0 0 30px rgba(255,0,128,0.3);
+      background: rgba(255,0,128,0.1);
+    }
+
+    .stat-label {
+      color: #999;
+      font-size: 0.8rem;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      color: #40e0d0;
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+      text-shadow: 0 2px 10px rgba(64,224,208,0.5);
+      font-family: 'Courier New', monospace;
+      min-height: 2.6rem;
+      line-height: 2.6rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat-value.good {
+      color: #4ade80;
+      text-shadow: 0 2px 10px rgba(74,222,128,0.5);
+    }
+
+    .stat-value.warn {
+      color: #ffa600;
+      text-shadow: 0 2px 10px rgba(255,166,0,0.5);
+    }
+
+    .stat-detail {
+      color: #666;
+      font-size: 0.75rem;
+      font-family: monospace;
+    }
+
+    /* Log Section */
+    .log-section {
+      background: rgba(0,0,0,0.85);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 20px;
+      backdrop-filter: blur(10px);
+    }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      background: rgba(255,0,128,0.1);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .log-header:hover {
+      background: rgba(255,0,128,0.2);
+    }
+
+    .log-title {
+      font-weight: 600;
+      color: #ff0080;
+    }
+
+    .log-toggle {
+      color: #999;
+      font-size: 0.9rem;
+    }
+
+    .log-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .log-content.expanded {
+      max-height: 400px;
+    }
+
+    .log {
+      padding: 15px;
+      max-height: 350px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+    }
+
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .log-time { color: #666; margin-right: 10px; }
+    .log-info { color: #40e0d0; }
+    .log-warn { color: #ffa600; }
+    .log-error { color: #ff6b6b; }
+    .log-success { color: #4ade80; }
+
+    /* Fullscreen Button */
+    .fullscreen-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      padding: 10px 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      z-index: 10;
+      backdrop-filter: blur(5px);
+      transition: all 0.3s ease;
+    }
+
+    .fullscreen-btn:hover {
+      background: rgba(255,0,128,0.8);
+      border-color: #ff0080;
+    }
+
+    /* Mobile Optimization */
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 1.8rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .stat-value {
+        font-size: 1.6rem;
+        min-height: 2rem;
+        line-height: 2rem;
+      }
+
+      .controls {
+        gap: 8px;
+      }
+
+      button {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+      }
+
+      .play-button {
+        width: 80px;
+        height: 80px;
+      }
+
+      .play-button::after {
+        border-left: 24px solid white;
+        border-top: 16px solid transparent;
+        border-bottom: 16px solid transparent;
+        margin-left: 6px;
+      }
+    }
+
+    /* Scrollbar Styling */
+    .log::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .log::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .log::-webkit-scrollbar-thumb {
+      background: rgba(255,0,128,0.5);
+      border-radius: 4px;
+    }
+
+    .log::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,0,128,0.7);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎵 BangFace Live Stream</h1>
+      <p class="subtitle">P2P-Powered • Low Latency • High Quality</p>
+    </div>
+
+    <div class="video-wrapper">
+      <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+      <div class="video-container">
+        <div class="play-overlay" id="play-overlay" onclick="playStream()">
+          <div class="play-button"></div>
+        </div>
+        <video id="video" playsinline></video>
+      </div>
+      <div class="controls">
+        <button onclick="playStream()">▶️ Start Stream</button>
+        <button onclick="stopStream()" class="secondary">⏹️ Stop</button>
+        <button onclick="toggleLog()" class="secondary">📋 Show Log</button>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box" id="peer-box">
+        <div class="stat-label">👥 Active Peers</div>
+        <div class="stat-value" id="peer-count">0</div>
+        <div class="stat-detail">Connected viewers</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">💚 P2P Downloaded</div>
+        <div class="stat-value good" id="p2p-mb">0 MB</div>
+        <div class="stat-detail" id="p2p-count">0 chunks</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">🌐 HTTP Downloaded</div>
+        <div class="stat-value" id="http-mb">0 MB</div>
+        <div class="stat-detail" id="http-count">0 chunks</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">🎯 P2P Ratio</div>
+        <div class="stat-value" id="p2p-ratio">0%</div>
+        <div class="stat-detail">Bandwidth shared</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">📤 P2P Uploaded</div>
+        <div class="stat-value" id="p2p-up">0 MB</div>
+        <div class="stat-detail">Shared to peers</div>
+      </div>
+      <div class="stat-box highlight">
+        <div class="stat-label">💰 CDN Offload</div>
+        <div class="stat-value good" id="cdn-saved">0 MB</div>
+        <div class="stat-detail" id="cdn-saved-percent">0% saved</div>
+      </div>
+    </div>
+
+    <div class="log-section">
+      <div class="log-header" onclick="toggleLog()">
+        <span class="log-title">📊 System Log</span>
+        <span class="log-toggle" id="log-toggle">▼ Show</span>
+      </div>
+      <div class="log-content" id="log-content">
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+  
+  <!-- P2P Media Loader - Local files (in public/, Vite won't process) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "p2p-media-loader-core": "/lib/p2p-media-loader-core.min.js",
+      "p2p-media-loader-hlsjs": "/lib/p2p-media-loader-hlsjs.min.js"
+    }
+  }
+  </script>
+  
+  <script type="module">
+    import { HlsJsP2PEngine } from 'p2p-media-loader-hlsjs';
+
+    let hls = null;
+    let p2pEngine = null;
+    let lastLogTime = 0;
+    const LOG_THROTTLE = 3000;
+    
+    const stats = {
+      peers: new Set(),
+      p2pBytes: 0,
+      httpBytes: 0,
+      p2pUploaded: 0,
+      p2pChunks: 0,
+      httpChunks: 0,
+      totalFrags: 0
+    };
+
+    function log(message, type = 'info') {
+      const now = new Date();
+      const time = now.toLocaleTimeString();
+      
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-time">${time}</span><span>${message}</span>`;
+      
+      const logPanel = document.getElementById('log');
+      logPanel.appendChild(entry);
+      logPanel.scrollTop = logPanel.scrollHeight;
+      
+      while (logPanel.children.length > 30) {
+        logPanel.removeChild(logPanel.firstChild);
+      }
+      
+      console.log(`[${type}]`, message);
+    }
+
+    function updateStats() {
+      document.getElementById('peer-count').textContent = stats.peers.size;
+      const peerBox = document.getElementById('peer-box');
+      if (stats.peers.size > 0) {
+        peerBox.classList.add('highlight');
+      } else {
+        peerBox.classList.remove('highlight');
+      }
+      
+      const p2pMB = stats.p2pBytes / 1024 / 1024;
+      const httpMB = stats.httpBytes / 1024 / 1024;
+      const uploadMB = stats.p2pUploaded / 1024 / 1024;
+      
+      document.getElementById('p2p-mb').textContent = p2pMB.toFixed(2) + ' MB';
+      document.getElementById('http-mb').textContent = httpMB.toFixed(2) + ' MB';
+      document.getElementById('p2p-up').textContent = uploadMB.toFixed(2) + ' MB';
+      
+      document.getElementById('p2p-count').textContent = stats.p2pChunks + ' chunks';
+      document.getElementById('http-count').textContent = stats.httpChunks + ' chunks';
+      
+      const total = p2pMB + httpMB;
+      const ratio = total > 0 ? (p2pMB / total * 100) : 0;
+      const ratioEl = document.getElementById('p2p-ratio');
+      ratioEl.textContent = ratio.toFixed(1) + '%';
+      
+      if (ratio > 50) {
+        ratioEl.className = 'stat-value good';
+      } else if (ratio > 20) {
+        ratioEl.className = 'stat-value';
+      } else {
+        ratioEl.className = 'stat-value warn';
+      }
+      
+      document.getElementById('cdn-saved').textContent = p2pMB.toFixed(2) + ' MB';
+      document.getElementById('cdn-saved-percent').textContent = ratio.toFixed(1) + '% saved';
+    }
+
+    window.toggleLog = function() {
+      const content = document.getElementById('log-content');
+      const toggle = document.getElementById('log-toggle');
+      
+      if (content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        toggle.textContent = '▼ Show';
+      } else {
+        content.classList.add('expanded');
+        toggle.textContent = '▲ Hide';
+      }
+    };
+
+    window.toggleFullscreen = function() {
+      const video = document.getElementById('video');
+      
+      if (!document.fullscreenElement) {
+        video.requestFullscreen().catch(err => {
+          log(`Fullscreen error: ${err.message}`, 'warn');
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    };
+
+    window.playStream = function() {
+      // Prevent multiple starts
+      if (hls) {
+        log('⚠️ Stream already running', 'warn');
+        return;
+      }
+
+      const url = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+      
+      log('🎬 Starting stream...', 'info');
+      
+      const video = document.getElementById('video');
+      const playOverlay = document.getElementById('play-overlay');
+
+      if (!Hls.isSupported()) {
+        log('❌ HLS.js not supported', 'error');
+        return;
+      }
+
+      // Hide play overlay immediately
+      playOverlay.classList.add('hidden');
+
+      try {
+        const HlsWithP2P = HlsJsP2PEngine.injectMixin(Hls);
+        log('✅ P2P engine ready', 'success');
+        
+        const p2pConfig = {
+          core: {
+            swarmId: url,
+            announceTrackers: [
+              'wss://tracker.openwebtorrent.com',
+              'wss://tracker.webtorrent.dev',
+              'wss://tracker.fastcast.nz'
+            ]
+          },
+          onHlsJsCreated(hlsWithP2P) {
+            log('✅ P2P initialized', 'success');
+            
+            p2pEngine = hlsWithP2P.p2pEngine;
+            if (!p2pEngine) {
+              log('⚠️ Could not access P2P engine', 'warn');
+              return;
+            }
+
+            p2pEngine.addEventListener('onPeerConnect', (details) => {
+              stats.peers.add(details.peerId);
+              log(`🤝 Peer connected (Total: ${stats.peers.size})`, 'success');
+              updateStats();
+            });
+            
+            p2pEngine.addEventListener('onPeerClose', (details) => {
+              stats.peers.delete(details.peerId);
+              log(`👋 Peer left (Remaining: ${stats.peers.size})`, 'info');
+              updateStats();
+            });
+            
+            p2pEngine.addEventListener('onChunkDownloaded', (bytesLength, downloadSource, peerId) => {
+              const now = Date.now();
+              
+              if (downloadSource === 'p2p') {
+                stats.p2pBytes += bytesLength;
+                stats.p2pChunks++;
+                
+                if (now - lastLogTime > LOG_THROTTLE) {
+                  log(`📥 P2P: ${(bytesLength/1024).toFixed(1)}KB | Total: ${(stats.p2pBytes/1024/1024).toFixed(2)}MB`, 'info');
+                  lastLogTime = now;
+                }
+              } else if (downloadSource === 'http') {
+                stats.httpBytes += bytesLength;
+                stats.httpChunks++;
+                
+                if (now - lastLogTime > LOG_THROTTLE) {
+                  log(`📡 HTTP: ${(bytesLength/1024).toFixed(1)}KB | Total: ${(stats.httpBytes/1024/1024).toFixed(2)}MB`, 'info');
+                  lastLogTime = now;
+                }
+              }
+              updateStats();
+            });
+            
+            p2pEngine.addEventListener('onChunkUploaded', (bytesLength, peerId) => {
+              stats.p2pUploaded += bytesLength;
+              const now = Date.now();
+              if (now - lastLogTime > LOG_THROTTLE) {
+                log(`📤 Uploaded ${(bytesLength/1024).toFixed(1)}KB`, 'info');
+                lastLogTime = now;
+              }
+              updateStats();
+            });
+            
+            p2pEngine.addEventListener('onPeerError', (details) => {
+              log(`❌ Peer error: ${details.error?.message}`, 'error');
+            });
+            
+            p2pEngine.addEventListener('onTrackerError', (details) => {
+              log(`❌ Tracker error: ${details.error?.message}`, 'error');
+            });
+          }
+        };
+        
+        hls = new HlsWithP2P({
+          liveSyncDuration: 3,
+          liveMaxLatencyDuration: 10,
+          lowLatencyMode: true,
+          p2p: p2pConfig
+        });
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          log('✅ Stream ready', 'success');
+          
+          // Add controls now that stream is loaded
+          video.setAttribute('controls', 'true');
+          
+          video.play().catch(err => {
+            log(`⚠️ Click play button to start`, 'warn');
+          });
+        });
+        
+        hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+          stats.totalFrags++;
+          updateStats();
+        });
+        
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            log(`❌ Error: ${data.details}`, 'error');
+          }
+        });
+
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        
+        log('💡 Open multiple tabs to see P2P sharing!', 'info');
+
+        setInterval(updateStats, 2000);
+
+      } catch (err) {
+        log(`❌ Error: ${err.message}`, 'error');
+        console.error(err);
+      }
+    };
+
+    window.stopStream = function() {
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+      
+      if (p2pEngine && p2pEngine.destroy) {
+        p2pEngine.destroy();
+        p2pEngine = null;
+      }
+      
+      const video = document.getElementById('video');
+      const playOverlay = document.getElementById('play-overlay');
+      
+      video.pause();
+      video.src = '';
+      video.removeAttribute('controls');
+      
+      // Show play overlay again
+      playOverlay.classList.remove('hidden');
+      
+      const p2pMB = stats.p2pBytes / 1024 / 1024;
+      const httpMB = stats.httpBytes / 1024 / 1024;
+      const totalMB = p2pMB + httpMB;
+      const ratio = totalMB > 0 ? (p2pMB / totalMB * 100) : 0;
+      
+      log('⏹️ Stream stopped', 'info');
+      log(`📊 P2P: ${p2pMB.toFixed(2)}MB | HTTP: ${httpMB.toFixed(2)}MB | Ratio: ${ratio.toFixed(1)}%`, 'success');
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      log('🚀 BangFace Live Stream Ready!', 'success');
+      log('✅ P2P-powered streaming with CDN fallback', 'info');
+    });
+  </script>
+</body>
+</html>
+
