@@ -12,8 +12,8 @@ services:
     environment:
       - NODE_ENV=production
       - HTTP_PORT=3000
-      - OWNCAST_DATA_PATH=/data/hls/0
-      - SIGNALING_URL=${SIGNALING_URL:-ws://signaling:8080}
+      - OWNCAST_DATA_PATH=/data/hls
+      - SIGNALING_URL=ws://signaling:8080
       - TRACKER_URLS=${TRACKER_URLS:-wss://tracker.openwebtorrent.com,wss://tracker.webtorrent.dev,wss://tracker.fastcast.nz}
       - CHUNK_RETENTION_MINUTES=${CHUNK_RETENTION_MINUTES:-5}
       - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
@@ -44,7 +44,7 @@ services:
     container_name: webtorrent-signaling
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       - NODE_ENV=production
       - WS_PORT=8080
@@ -74,7 +74,7 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: ${OWNCAST_DATA_PATH:-./owncast/data}
+      device: /Users/ran/owncast/data/hls
       o: bind
 
 networks:
