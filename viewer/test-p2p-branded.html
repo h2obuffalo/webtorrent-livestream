@@ -477,17 +477,13 @@
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
   
-  <script type="importmap">
-  {
-    "imports": {
-      "p2p-media-loader-core": "https://unpkg.com/p2p-media-loader-core@2.2.1/dist/p2p-media-loader-core.umd.js",
-      "p2p-media-loader-hlsjs": "https://unpkg.com/p2p-media-loader-hlsjs@2.2.1/dist/p2p-media-loader-hlsjs.umd.js"
-    }
-  }
-  </script>
+  <!-- P2P Media Loader - UMD builds (no ES modules to avoid Vite processing) -->
+  <script src="https://cdn.jsdelivr.net/npm/p2p-media-loader-core@2.2.1/dist/p2p-media-loader-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/p2p-media-loader-hlsjs@2.2.1/dist/p2p-media-loader-hlsjs.min.js"></script>
   
-  <script type="module">
-    import { HlsJsP2PEngine } from 'p2p-media-loader-hlsjs';
+  <script>
+    // Access from global scope (UMD exposes P2PMediaLoaderHlsjs)
+    const { HlsJsP2PEngine } = window.P2PMediaLoaderHlsjs || {};
 
     let hls = null;
     let p2pEngine = null;
