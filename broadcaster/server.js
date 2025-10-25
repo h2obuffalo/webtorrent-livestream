@@ -7,6 +7,7 @@ const WebTorrent = require('webtorrent');
 const chokidar = require('chokidar');
 const WebSocket = require('ws');
 const { uploadToR2, verifyR2Connection } = require('./r2-uploader');
+const ManifestGenerator = require('./manifest-generator');
 
 // Configuration
 const config = {
@@ -27,6 +28,12 @@ const state = {
   signalingWs: null,
   signalingReconnectTimer: null,
 };
+
+// Initialize manifest generator (uses R2 URLs for HTTP fallback)
+const manifestGenerator = new ManifestGenerator({
+  maxChunks: 60, // Keep last 60 chunks in playlist (5 minutes @ 5s/chunk)
+  targetDuration: 6, // Estimated chunk duration in seconds
+});
 
 // Initialize WebTorrent client
 const wtClient = new WebTorrent({
@@ -66,13 +73,33 @@ app.use('/chunks', express.static(chunksDir, {
   },
 }));
 
+// Manifest endpoint - serves HLS playlist with R2 URLs
+app.get('/live/playlist.m3u8', (req, res) => {
+  const manifest = manifestGenerator.generateManifest();
+  const stats = manifestGenerator.getStats();
+  
+  res.set({
+    'Content-Type': 'application/vnd.apple.mpegurl',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Access-Control-Allow-Origin': '*',
+  });
+  
+  if (config.enableDebug) {
+    console.log(`📋 Manifest requested - ${stats.chunkCount} chunks available`);
+  }
+  
+  res.send(manifest);
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
+  const manifestStats = manifestGenerator.getStats();
   res.json({
     status: 'ok',
     torrents: state.activeTorrents.size,
     peers: Array.from(state.activeTorrents.values()).reduce((sum, t) => sum + t.numPeers, 0),
     chunks: state.chunkSequence,
+    manifestChunks: manifestStats.chunkCount,
     signaling: state.signalingWs?.readyState === WebSocket.OPEN ? 'connected' : 'disconnected',
   });
 });
@@ -184,7 +211,30 @@ async function processChunk(filePath) {
   const seq = state.chunkSequence;
   const timestamp = Date.now();
 
-  // 1. Seed with WebTorrent
+  // 1. Upload to R2 FIRST (so we have the URL for signaling and manifest)
+  console.log('   ☁️  Uploading to Cloudflare R2...');
+  
+  const r2Key = `${config.r2Path}${filename}`;
+  const r2Url = await uploadToR2(filePath, r2Key);
+  
+  if (r2Url) {
+    console.log(`   ✅ R2 upload complete: ${r2Url}`);
+    
+    // Add to manifest generator (uses R2 URL for HTTP fallback)
+    const chunkInfo = {
+      filename,
+      r2: r2Url,
+      size: stats.size,
+      timestamp,
+      seq,
+    };
+    manifestGenerator.addChunk(chunkInfo);
+    console.log(`   📋 Added to manifest (${manifestGenerator.getChunkCount()} chunks total)`);
+  } else {
+    console.error(`   ❌ R2 upload failed for ${filename}`);
+  }
+
+  // 2. Seed with WebTorrent
   console.log('   🌱 Seeding via WebTorrent...');
   
   wtClient.seed(filePath, { 
@@ -196,6 +246,20 @@ async function processChunk(filePath) {
     
     // Store torrent reference
     state.activeTorrents.set(filename, torrent);
+
+    // 3. Notify signaling server NOW (we have both torrent AND r2Url)
+    const chunkInfo = {
+      seq,
+      filename,
+      magnet: torrent.magnetURI,
+      http: `http://localhost:${config.httpPort}/chunks/${filename}`,
+      r2: r2Url,
+      timestamp,
+      size: stats.size,
+      infoHash: torrent.infoHash,
+    };
+    
+    notifySignaling(chunkInfo);
 
     // Monitor peers
     torrent.on('wire', (wire) => {
@@ -213,39 +277,7 @@ async function processChunk(filePath) {
     }, 10000);
   });
 
-  // 2. Upload to R2
-  console.log('   ☁️  Uploading to Cloudflare R2...');
-  
-  const r2Key = `${config.r2Path}${filename}`;
-  const r2Url = await uploadToR2(filePath, r2Key);
-  
-  if (r2Url) {
-    console.log(`   ✅ R2 upload complete: ${r2Url}`);
-  } else {
-    console.error(`   ❌ R2 upload failed for ${filename}`);
-  }
-
-  // 3. Get magnet URI (wait briefly for torrent to be ready)
-  setTimeout(() => {
-    const torrent = state.activeTorrents.get(filename);
-    if (torrent) {
-      const chunkInfo = {
-        seq,
-        filename,
-        magnet: torrent.magnetURI,
-        http: `http://localhost:${config.httpPort}/chunks/${filename}`,
-        r2: r2Url,
-        timestamp,
-        size: stats.size,
-        infoHash: torrent.infoHash,
-      };
-
-      // 4. Notify signaling server
-      notifySignaling(chunkInfo);
-    }
-  }, 1000);
-
-  // 5. Schedule cleanup
+  // 4. Schedule cleanup
   setTimeout(() => {
     pruneOldChunk(filename, filePath);
   }, config.retentionMinutes * 60 * 1000);

@@ -593,7 +593,10 @@
         return;
       }
 
-      const url = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+      // Use broadcaster's manifest with R2 URLs (reduces AWS EC2 load)
+      // For local testing: 'http://localhost:3000/live/playlist.m3u8'
+      // For production via Cloudflare tunnel: 'https://tv.danpage.uk/live/playlist.m3u8'
+      const url = 'http://localhost:3000/live/playlist.m3u8';
       
       log('🎬 Starting stream...', 'info');
       
@@ -686,9 +689,11 @@
         };
         
         hls = new HlsWithP2P({
-          liveSyncDuration: 3,
-          liveMaxLatencyDuration: 10,
-          lowLatencyMode: true,
+          liveSyncDuration: 5,
+          liveMaxLatencyDuration: 15,
+          lowLatencyMode: false,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
           p2p: p2pConfig
         });
         
