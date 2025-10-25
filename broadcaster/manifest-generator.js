@@ -10,6 +10,8 @@ class ManifestGenerator {
     this.maxChunks = config.maxChunks || 10;
     this.targetDuration = config.targetDuration || 6; // Default 6 seconds
     this.sequenceNumber = 0;
+    this.currentSessionId = null; // Track current stream session
+    this.discontinuitySequence = 0; // Track number of discontinuities
   }
 
   /**
@@ -28,6 +30,23 @@ class ManifestGenerator {
       return false;
     }
 
+    // Extract session ID from R2 URL (format: .../live/{sessionId}/{filename})
+    const sessionMatch = chunkInfo.r2.match(/\/live\/(\d+)\//);
+    const newSessionId = sessionMatch ? sessionMatch[1] : null;
+    
+    // Detect session change (stream restart)
+    let needsDiscontinuity = false;
+    if (newSessionId && this.currentSessionId && newSessionId !== this.currentSessionId) {
+      console.log(`   🔄 Session change detected: ${this.currentSessionId} → ${newSessionId}`);
+      needsDiscontinuity = true;
+      this.discontinuitySequence++;
+    }
+    
+    // Update current session ID
+    if (newSessionId) {
+      this.currentSessionId = newSessionId;
+    }
+
     // Add chunk to list
     this.chunks.push({
       filename: chunkInfo.filename,
@@ -36,6 +55,8 @@ class ManifestGenerator {
       size: chunkInfo.size,
       timestamp: chunkInfo.timestamp,
       seq: chunkInfo.seq,
+      sessionId: newSessionId,
+      discontinuity: needsDiscontinuity, // Mark if this chunk starts a new session
     });
 
     // Remove oldest chunks if we exceed max
@@ -73,9 +94,20 @@ class ManifestGenerator {
       '#EXT-X-TARGETDURATION:' + this.targetDuration,
       '#EXT-X-MEDIA-SEQUENCE:' + mediaSequence,
     ];
+    
+    // Add discontinuity sequence if we've had stream restarts
+    if (this.discontinuitySequence > 0) {
+      lines.push('#EXT-X-DISCONTINUITY-SEQUENCE:' + this.discontinuitySequence);
+    }
 
     // Add each chunk
     for (const chunk of this.chunks) {
+      // Add discontinuity tag before chunks that start a new session
+      if (chunk.discontinuity) {
+        lines.push('#EXT-X-DISCONTINUITY');
+        console.log(`   📺 Added discontinuity tag for session change at ${chunk.filename}`);
+      }
+      
       lines.push(`#EXTINF:${chunk.duration.toFixed(3)},`);
       lines.push(chunk.url); // This is the R2 URL!
     }
@@ -110,6 +142,8 @@ class ManifestGenerator {
   clear() {
     this.chunks = [];
     this.sequenceNumber = 0;
+    // Note: We keep currentSessionId and discontinuitySequence
+    // so we can detect session changes across clears
   }
 
   /**
