@@ -14,7 +14,7 @@ services:
       - HTTP_PORT=3000
       - OWNCAST_DATA_PATH=/data/hls
       - SIGNALING_URL=ws://signaling:8080
-      - TRACKER_URLS=${TRACKER_URLS:-wss://tracker.openwebtorrent.com,wss://tracker.webtorrent.dev,wss://tracker.fastcast.nz}
+      - TRACKER_URLS=${TRACKER_URLS:-wss://tracker.openwebtorrent.com,wss://tracker.webtorrent.dev,wss://tracker.btorrent.xyz}
       - CHUNK_RETENTION_MINUTES=${CHUNK_RETENTION_MINUTES:-5}
       - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}

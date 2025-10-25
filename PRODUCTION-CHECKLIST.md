@@ -39,9 +39,9 @@
     ```
   - Without this, browser will block video segments with CORS errors
   
-- [ ] **TRACKER_URLS** - Remove dead trackers
-  - ❌ Remove `wss://tracker.fastcast.nz` (dead)
+- [ ] **TRACKER_URLS** - Verified working trackers only
   - ✅ Use: `wss://tracker.openwebtorrent.com,wss://tracker.webtorrent.dev,wss://tracker.btorrent.xyz`
+  - ⚠️ Dead tracker removed: `wss://tracker.fastcast.nz`
 
 - [ ] **ENABLE_DEBUG_LOGGING** - Set to `false` for production
 

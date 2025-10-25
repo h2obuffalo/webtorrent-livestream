@@ -38,8 +38,8 @@ function getStream(type, id, state, config) {
         'tracker:udp://tracker.opentrackr.org:1337',
         'tracker:udp://tracker.openbittorrent.com:6969',
         'tracker:wss://tracker.openwebtorrent.com',
-        'tracker:wss://tracker.btorrent.xyz',
-        'tracker:wss://tracker.fastcast.nz'
+        'tracker:wss://tracker.webtorrent.dev',
+        'tracker:wss://tracker.btorrent.xyz'
       ],
       behaviorHints: {
         bingeGroup: 'livestream-current',
