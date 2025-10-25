@@ -15,7 +15,7 @@ const config = {
   httpPort: parseInt(process.env.HTTP_PORT) || 3000,
   signalingUrl: process.env.SIGNALING_URL || 'ws://localhost:8080',
   trackers: (process.env.TRACKER_URLS || 'wss://tracker.openwebtorrent.com').split(','),
-  retentionMinutes: parseInt(process.env.CHUNK_RETENTION_MINUTES) || 5,
+  retentionMinutes: parseInt(process.env.CHUNK_RETENTION_MINUTES) || 15,
   r2Path: process.env.R2_UPLOAD_PATH || 'live/',
   enableDebug: process.env.ENABLE_DEBUG_LOGGING === 'true',
 };
@@ -35,7 +35,7 @@ const state = {
 
 // Initialize manifest generator (uses R2 URLs for HTTP fallback)
 const manifestGenerator = new ManifestGenerator({
-  maxChunks: 60, // Keep last 60 chunks in playlist (5 minutes @ 5s/chunk)
+  maxChunks: 120, // Keep last 120 chunks in playlist (12 minutes @ 6s/chunk)
   targetDuration: 6, // Estimated chunk duration in seconds
 });
 
