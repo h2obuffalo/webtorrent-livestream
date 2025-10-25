@@ -63,12 +63,17 @@ async function uploadToR2(filePath, key) {
                        'application/octet-stream';
 
     // Upload to R2
+    // Use shorter cache for live segments to avoid stale content on stream restarts
+    const cacheControl = key.endsWith('.ts') 
+      ? 'public, max-age=10, s-maxage=10' // 10 seconds for segments
+      : 'no-cache, no-store, must-revalidate'; // No cache for playlists
+    
     const command = new PutObjectCommand({
       Bucket: config.bucketName,
       Key: key,
       Body: fileContent,
       ContentType: contentType,
-      CacheControl: 'public, max-age=300', // 5 minute cache
+      CacheControl: cacheControl,
     });
 
     await s3Client.send(command);

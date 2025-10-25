@@ -27,6 +27,9 @@ const state = {
   chunkSequence: 0,
   signalingWs: null,
   signalingReconnectTimer: null,
+  lastChunkTime: null, // Track when we last received a chunk
+  streamRestartTimer: null, // Timer to detect stream restarts
+  streamSessionId: Date.now(), // Unique ID for each stream session
 };
 
 // Initialize manifest generator (uses R2 URLs for HTTP fallback)
@@ -34,6 +37,53 @@ const manifestGenerator = new ManifestGenerator({
   maxChunks: 60, // Keep last 60 chunks in playlist (5 minutes @ 5s/chunk)
   targetDuration: 6, // Estimated chunk duration in seconds
 });
+
+// Function to clear stream state (called on stream restart detection)
+function clearStreamState() {
+  console.log('\n🔄 Stream restart detected - clearing state...');
+  
+  // Clear manifest
+  const oldChunkCount = manifestGenerator.getChunkCount();
+  manifestGenerator.clear();
+  console.log(`   📋 Cleared ${oldChunkCount} chunks from manifest`);
+  
+  // Destroy all active torrents
+  const oldTorrentCount = state.activeTorrents.size;
+  state.activeTorrents.forEach((torrent, filename) => {
+    torrent.destroy();
+  });
+  state.activeTorrents.clear();
+  console.log(`   🛑 Destroyed ${oldTorrentCount} active torrents`);
+  
+  // Clear processed chunks
+  state.processedChunks.clear();
+  console.log(`   🗑️  Cleared processed chunks set`);
+  
+  // Reset sequence
+  state.chunkSequence = 0;
+  console.log(`   🔢 Reset chunk sequence to 0`);
+  
+  // Generate new stream session ID
+  const oldSessionId = state.streamSessionId;
+  state.streamSessionId = Date.now();
+  console.log(`   🆔 New stream session: ${oldSessionId} → ${state.streamSessionId}`);
+  
+  console.log('✅ Stream state cleared - ready for new stream\n');
+}
+
+// Monitor for stream restarts (no chunks for 30 seconds = stream stopped)
+function resetStreamRestartTimer() {
+  if (state.streamRestartTimer) {
+    clearTimeout(state.streamRestartTimer);
+  }
+  
+  state.streamRestartTimer = setTimeout(() => {
+    // No chunks received for 30 seconds - consider stream stopped
+    if (state.lastChunkTime && (Date.now() - state.lastChunkTime > 30000)) {
+      clearStreamState();
+    }
+  }, 30000);
+}
 
 // Initialize WebTorrent client
 const wtClient = new WebTorrent({
@@ -203,18 +253,35 @@ async function processChunk(filePath) {
     return;
   }
 
+  // Detect stream restart by checking for early segment numbers after we've been running
+  // Owncast typically names files like "0.ts", "1.ts", etc.
+  const segmentMatch = filename.match(/^(\d+)\.ts$/);
+  if (segmentMatch && state.chunkSequence > 10) {
+    const segmentNum = parseInt(segmentMatch[1]);
+    // If we see segment 0-2 after processing 10+ chunks, it's likely a restart
+    if (segmentNum <= 2) {
+      console.log(`\n⚠️  Early segment number detected (${segmentNum}) after ${state.chunkSequence} chunks`);
+      clearStreamState();
+    }
+  }
+  
   state.processedChunks.add(filename);
   state.chunkSequence++;
+  
+  // Update last chunk time and reset restart detection timer
+  state.lastChunkTime = Date.now();
+  resetStreamRestartTimer();
 
   console.log(`\n📦 New chunk detected: ${filename} (${(stats.size / 1024).toFixed(2)} KB)`);
 
   const seq = state.chunkSequence;
-  const timestamp = Date.now();
+  const timestamp = state.lastChunkTime;
 
   // 1. Upload to R2 FIRST (so we have the URL for signaling and manifest)
   console.log('   ☁️  Uploading to Cloudflare R2...');
   
-  const r2Key = `${config.r2Path}${filename}`;
+  // Include stream session ID in R2 path to prevent conflicts between streams
+  const r2Key = `${config.r2Path}${state.streamSessionId}/${filename}`;
   const r2Url = await uploadToR2(filePath, r2Key);
   
   if (r2Url) {
