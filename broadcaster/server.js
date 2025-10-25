@@ -75,20 +75,20 @@ function clearStreamState() {
   console.log('✅ Stream state cleared - ready for new stream\n');
 }
 
-// Monitor for stream restarts (no chunks for 30 seconds = stream stopped)
+// Monitor for stream restarts (no chunks for 15 seconds = stream stopped)
 function resetStreamRestartTimer() {
   if (state.streamRestartTimer) {
     clearTimeout(state.streamRestartTimer);
   }
   
   state.streamRestartTimer = setTimeout(() => {
-    // No chunks received for 30 seconds - mark stream as stopped
-    if (state.lastChunkTime && (Date.now() - state.lastChunkTime > 30000)) {
-      console.log('\n⏸️  Stream stopped (30s timeout) - will clear on next chunk');
+    // No chunks received for 15 seconds - mark stream as stopped
+    if (state.lastChunkTime && (Date.now() - state.lastChunkTime > 15000)) {
+      console.log('\n⏸️  Stream stopped (15s timeout) - will clear on next chunk');
       state.streamStopped = true;
       // Don't clear state yet - wait for next chunk to arrive
     }
-  }, 30000);
+  }, 15000);
 }
 
 // Initialize WebTorrent client
