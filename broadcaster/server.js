@@ -30,6 +30,7 @@ const state = {
   lastChunkTime: null, // Track when we last received a chunk
   streamRestartTimer: null, // Timer to detect stream restarts
   streamSessionId: Date.now(), // Unique ID for each stream session
+  lastStreamId: null, // Track Owncast stream ID for restart detection
 };
 
 // Initialize manifest generator (uses R2 URLs for HTTP fallback)
@@ -62,6 +63,10 @@ function clearStreamState() {
   // Reset sequence
   state.chunkSequence = 0;
   console.log(`   🔢 Reset chunk sequence to 0`);
+  
+  // Reset stream ID tracking
+  state.lastStreamId = null;
+  console.log(`   🔄 Reset stream ID tracking`);
   
   // Generate new stream session ID
   const oldSessionId = state.streamSessionId;
@@ -253,12 +258,33 @@ async function processChunk(filePath) {
     return;
   }
 
-  // Detect stream restart by checking for early segment numbers after we've been running
-  // Owncast typically names files like "0.ts", "1.ts", etc.
-  const segmentMatch = filename.match(/^(\d+)\.ts$/);
-  if (segmentMatch && state.chunkSequence > 10) {
-    const segmentNum = parseInt(segmentMatch[1]);
-    // If we see segment 0-2 after processing 10+ chunks, it's likely a restart
+  // Detect stream restart by checking for stream ID changes or early segment numbers
+  // Owncast names files like "stream-yY16uARDgz-87.ts" or "0.ts"
+  const owncastMatch = filename.match(/^stream-([^-]+)-(\d+)\.ts$/);
+  const simpleMatch = filename.match(/^(\d+)\.ts$/);
+  
+  if (owncastMatch) {
+    const [, streamId, segmentNum] = owncastMatch;
+    
+    // Detect stream ID change (new stream started)
+    if (state.lastStreamId && state.lastStreamId !== streamId && state.chunkSequence > 5) {
+      console.log(`\n⚠️  Stream ID changed: ${state.lastStreamId} → ${streamId}`);
+      clearStreamState();
+    }
+    
+    // Detect early segment number after processing many chunks
+    if (state.lastStreamId === streamId && state.chunkSequence > 20) {
+      const num = parseInt(segmentNum);
+      if (num <= 5) {
+        console.log(`\n⚠️  Early segment (${num}) detected after ${state.chunkSequence} chunks`);
+        clearStreamState();
+      }
+    }
+    
+    state.lastStreamId = streamId;
+  } else if (simpleMatch && state.chunkSequence > 10) {
+    // Support simple numbering: 0.ts, 1.ts, etc.
+    const segmentNum = parseInt(simpleMatch[1]);
     if (segmentNum <= 2) {
       console.log(`\n⚠️  Early segment number detected (${segmentNum}) after ${state.chunkSequence} chunks`);
       clearStreamState();
