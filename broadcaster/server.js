@@ -35,7 +35,7 @@ const state = {
 
 // Initialize manifest generator (uses R2 URLs for HTTP fallback)
 const manifestGenerator = new ManifestGenerator({
-  maxChunks: 120, // Keep last 120 chunks in playlist (12 minutes @ 6s/chunk)
+  maxChunks: 240, // Keep last 240 chunks in playlist (24 minutes @ 6s/chunk)
   targetDuration: 6, // Estimated chunk duration in seconds
 });
 

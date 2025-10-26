@@ -7,7 +7,7 @@
 class ManifestGenerator {
   constructor(config = {}) {
     this.chunks = [];
-    this.maxChunks = config.maxChunks || 10;
+    this.maxChunks = config.maxChunks || 240; // Default 240 chunks for Android TV support
     this.targetDuration = config.targetDuration || 6; // Default 6 seconds
     this.sequenceNumber = 0;
     this.currentSessionId = null; // Track current stream session
