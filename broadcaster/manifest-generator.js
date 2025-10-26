@@ -30,6 +30,13 @@ class ManifestGenerator {
       return false;
     }
 
+    // Check if this exact chunk already exists in the manifest
+    const existingChunk = this.chunks.find(chunk => chunk.filename === chunkInfo.filename);
+    if (existingChunk) {
+      console.log(`   ⚠️  Chunk ${chunkInfo.filename} already in manifest, skipping`);
+      return false;
+    }
+
     // Extract session ID from R2 URL (format: .../live/{sessionId}/{filename})
     const sessionMatch = chunkInfo.r2.match(/\/live\/(\d+)\//);
     const newSessionId = sessionMatch ? sessionMatch[1] : null;

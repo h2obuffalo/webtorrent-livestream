@@ -239,10 +239,13 @@ async function processChunk(filePath) {
     return;
   }
 
-  // Skip if already processed
+  // Skip if already processed - check FIRST to prevent duplicates
   if (state.processedChunks.has(filename)) {
     return;
   }
+
+  // Mark as processed IMMEDIATELY to prevent race conditions
+  state.processedChunks.add(filename);
 
   // Wait a moment for file to be fully written
   await new Promise(resolve => setTimeout(resolve, 500));
@@ -265,7 +268,6 @@ async function processChunk(filePath) {
     clearStreamState();
   }
   
-  state.processedChunks.add(filename);
   state.chunkSequence++;
   
   // Update last chunk time and reset restart detection timer
