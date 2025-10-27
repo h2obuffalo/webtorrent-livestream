@@ -94,12 +94,17 @@ class ManifestGenerator {
     // Calculate the media sequence number (based on oldest chunk)
     const mediaSequence = this.chunks[0].seq || 0;
 
+    // Calculate program date time from the first chunk
+    const programStartTime = this.chunks[0]?.timestamp ? new Date(this.chunks[0].timestamp) : new Date();
+    
     // Build the playlist
     const lines = [
       '#EXTM3U',
       '#EXT-X-VERSION:3',
       '#EXT-X-TARGETDURATION:' + this.targetDuration,
       '#EXT-X-MEDIA-SEQUENCE:' + mediaSequence,
+      '#EXT-X-PLAYLIST-TYPE:EVENT', // Use EVENT for live streams
+      `#EXT-X-PROGRAM-DATE-TIME:${programStartTime.toISOString()}`,
     ];
     
     // Add discontinuity sequence if we've had stream restarts
@@ -107,16 +112,29 @@ class ManifestGenerator {
       lines.push('#EXT-X-DISCONTINUITY-SEQUENCE:' + this.discontinuitySequence);
     }
 
+    // Calculate cumulative time for each chunk
+    let cumulativeTime = 0;
+    
     // Add each chunk
     for (const chunk of this.chunks) {
       // Add discontinuity tag before chunks that start a new session
       if (chunk.discontinuity) {
         lines.push('#EXT-X-DISCONTINUITY');
         console.log(`   📺 Added discontinuity tag for session change at ${chunk.filename}`);
+        // Reset cumulative time on discontinuity
+        cumulativeTime = 0;
+      }
+      
+      // Add program date time for this chunk
+      if (chunk.timestamp) {
+        const chunkTime = new Date(chunk.timestamp);
+        lines.push(`#EXT-X-PROGRAM-DATE-TIME:${chunkTime.toISOString()}`);
       }
       
       lines.push(`#EXTINF:${chunk.duration.toFixed(3)},`);
       lines.push(chunk.url); // This is the R2 URL!
+      
+      cumulativeTime += chunk.duration;
     }
 
     // For live streams, don't add EXT-X-ENDLIST
