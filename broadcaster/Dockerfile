@@ -24,11 +24,13 @@ FROM node:18-alpine
 # Install runtime dependencies
 RUN apk add --no-cache \
     python3 \
-    dumb-init
+    dumb-init \
+    sudo
 
 # Create app user
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+    adduser -S nodejs -u 1001 && \
+    echo "nodejs ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 WORKDIR /app
 
@@ -41,6 +43,10 @@ COPY --chown=nodejs:nodejs . .
 # Create directories for Owncast data
 RUN mkdir -p /data/hls && chown -R nodejs:nodejs /data
 
+# Copy entrypoint script
+COPY --chown=nodejs:nodejs entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Switch to non-root user
 USER nodejs
 
@@ -51,8 +57,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose HTTP port
 EXPOSE 3000
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+# Use entrypoint script to fix permissions then start the app
+ENTRYPOINT ["/entrypoint.sh"]
 
 # Start the broadcaster
 CMD ["node", "server.js"]

@@ -7,7 +7,7 @@
 class ManifestGenerator {
   constructor(config = {}) {
     this.chunks = [];
-    this.maxChunks = config.maxChunks || 240; // Default 240 chunks for Android TV support
+    this.maxChunks = config.maxChunks || 60; // Reduced from 240 to 60 chunks (5 minutes @ 6s/chunk)
     this.targetDuration = config.targetDuration || 6; // Default 6 seconds
     this.sequenceNumber = 0;
     this.currentSessionId = null; // Track current stream session
@@ -54,7 +54,7 @@ class ManifestGenerator {
       this.currentSessionId = newSessionId;
     }
 
-    // Add chunk to list
+    // Add chunk to list (will be sorted when manifest is generated)
     this.chunks.push({
       filename: chunkInfo.filename,
       url: chunkInfo.r2, // Use R2 URL, not localhost
@@ -65,6 +65,8 @@ class ManifestGenerator {
       sessionId: newSessionId,
       discontinuity: needsDiscontinuity, // Mark if this chunk starts a new session
     });
+    
+    console.log(`   📋 Added ${chunkInfo.filename} to manifest (${this.chunks.length} chunks total)`);
 
     // Remove oldest chunks if we exceed max
     while (this.chunks.length > this.maxChunks) {
@@ -91,11 +93,26 @@ class ManifestGenerator {
       ].join('\n');
     }
 
-    // Calculate the media sequence number (based on oldest chunk)
-    const mediaSequence = this.chunks[0].seq || 0;
+    // Sort chunks by chunk number to ensure proper order
+    const sortedChunks = [...this.chunks].sort((a, b) => {
+      const getChunkNumber = (filename) => {
+        const match = filename.match(/stream-\w+-(\d+)\.ts/);
+        return match ? parseInt(match[1]) : 0;
+      };
+      return getChunkNumber(a.filename) - getChunkNumber(b.filename);
+    });
+    
+    // Debug: Log the first few chunks to verify sorting
+    console.log(`   📋 Manifest generation: ${sortedChunks.length} chunks`);
+    if (sortedChunks.length > 0) {
+      console.log(`   📋 First 5 chunks: ${sortedChunks.slice(0, 5).map(c => c.filename.match(/stream-\w+-(\d+)\.ts/)?.[1] || '?').join(', ')}`);
+    }
+
+    // Calculate the media sequence number (based on oldest chunk by timestamp)
+    const mediaSequence = sortedChunks[0].seq || 0;
 
     // Calculate program date time from the first chunk
-    const programStartTime = this.chunks[0]?.timestamp ? new Date(this.chunks[0].timestamp) : new Date();
+    const programStartTime = sortedChunks[0]?.timestamp ? new Date(sortedChunks[0].timestamp) : new Date();
     
     // Build the playlist
     const lines = [
@@ -115,8 +132,8 @@ class ManifestGenerator {
     // Calculate cumulative time for each chunk
     let cumulativeTime = 0;
     
-    // Add each chunk
-    for (const chunk of this.chunks) {
+    // Add each chunk in sorted order
+    for (const chunk of sortedChunks) {
       // Add discontinuity tag before chunks that start a new session
       if (chunk.discontinuity) {
         lines.push('#EXT-X-DISCONTINUITY');

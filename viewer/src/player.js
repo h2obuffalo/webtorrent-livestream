@@ -7,6 +7,11 @@ const CONFIG = {
   httpFallbackThreshold: 3, // Switch to HTTP-only after N consecutive P2P failures
   bufferTarget: 3, // Target number of chunks to buffer
   maxBufferSize: 60, // Maximum seconds to buffer
+  trackers: [
+    'udp://tracker.qu.ax:6969/announce',
+    'udp://tracker.plx.im:6969/announce',
+    'udp://tracker.torrent.eu.org:451/announce'
+  ],
 };
 
 // State management
@@ -111,10 +116,7 @@ function initWebTorrent() {
   
   state.wtClient = new WebTorrent({
     tracker: {
-      announce: [
-        'wss://tracker.openwebtorrent.com',
-        'wss://tracker.webtorrent.dev',
-      ],
+      announce: CONFIG.trackers,
     },
   });
   

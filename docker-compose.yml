@@ -12,7 +12,7 @@ services:
     environment:
       - NODE_ENV=production
       - HTTP_PORT=3000
-      - OWNCAST_DATA_PATH=/data/hls
+      - OWNCAST_DATA_PATH=/data/hls/0
       - SIGNALING_URL=ws://signaling:8080
       - TRACKER_URLS=${TRACKER_URLS:-wss://tracker.openwebtorrent.com,wss://tracker.webtorrent.dev,wss://tracker.btorrent.xyz}
       - CHUNK_RETENTION_MINUTES=${CHUNK_RETENTION_MINUTES:-5}
@@ -23,6 +23,9 @@ services:
       - R2_UPLOAD_PATH=${R2_UPLOAD_PATH:-live/}
       - CDN_HOSTNAME=${CDN_HOSTNAME}
       - ENABLE_DEBUG_LOGGING=${ENABLE_DEBUG_LOGGING:-false}
+      - OWNCAST_API_URL=${OWNCAST_API_URL:-http://host.docker.internal:8080}
+      - OWNCAST_STATUS_CHECK_INTERVAL=${OWNCAST_STATUS_CHECK_INTERVAL:-10000}
+      - CHUNK_RETENTION_AFTER_END=${CHUNK_RETENTION_AFTER_END:-300000}
     volumes:
       # Mount Owncast HLS output directory
       - owncast-data:/data/hls:ro

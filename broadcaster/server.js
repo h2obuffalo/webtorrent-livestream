@@ -7,17 +7,20 @@ const WebTorrent = require('webtorrent');
 const chokidar = require('chokidar');
 const WebSocket = require('ws');
 const { uploadToR2, verifyR2Connection } = require('./r2-uploader');
-const ManifestGenerator = require('./manifest-generator');
+const R2Proxy = require('./r2-proxy');
 
 // Configuration
 const config = {
   owncastPath: process.env.OWNCAST_DATA_PATH || '../owncast/data/hls/0',
   httpPort: parseInt(process.env.HTTP_PORT) || 3000,
   signalingUrl: process.env.SIGNALING_URL || 'ws://localhost:8080',
-  trackers: (process.env.TRACKER_URLS || 'wss://tracker.openwebtorrent.com').split(','),
+  trackers: (process.env.TRACKER_URLS || 'udp://tracker.qu.ax:6969/announce,udp://tracker.plx.im:6969/announce,udp://tracker.torrent.eu.org:451/announce').split(','),
   retentionMinutes: parseInt(process.env.CHUNK_RETENTION_MINUTES) || 15,
   r2Path: process.env.R2_UPLOAD_PATH || 'live/',
   enableDebug: process.env.ENABLE_DEBUG_LOGGING === 'true',
+  owncastApiUrl: process.env.OWNCAST_API_URL || 'http://localhost:8080',
+  owncastStatusInterval: parseInt(process.env.OWNCAST_STATUS_CHECK_INTERVAL) || 10000, // 10s
+  chunkRetentionAfterStreamEnd: parseInt(process.env.CHUNK_RETENTION_AFTER_END) || 300000, // 5 minutes
 };
 
 // State management
@@ -31,13 +34,68 @@ const state = {
   streamRestartTimer: null, // Timer to detect stream restarts
   streamSessionId: Date.now(), // Unique ID for each stream session
   streamStopped: false, // Flag: stream has stopped (no chunks for 30s)
+  owncastOnline: false,
+  lastOwncastCheck: null,
+  streamEndTime: null,
+  statusCheckTimer: null,
 };
 
-// Initialize manifest generator (uses R2 URLs for HTTP fallback)
-const manifestGenerator = new ManifestGenerator({
-  maxChunks: 240, // Keep last 240 chunks in playlist (24 minutes @ 6s/chunk)
-  targetDuration: 6, // Estimated chunk duration in seconds
+// Initialize R2 proxy for HLS optimization
+const r2Proxy = new R2Proxy({
+  owncastUrl: 'http://localhost:8080',
+  r2BaseUrl: 'https://pub-81f1de5a4fc945bdaac36449630b5685.r2.dev'
 });
+
+// Check Owncast status
+async function checkOwncastStatus() {
+  try {
+    const response = await fetch(`${config.owncastApiUrl}/api/status`);
+    const data = await response.json();
+    
+    const wasOnline = state.owncastOnline;
+    state.owncastOnline = data.online === true;
+    state.lastOwncastCheck = Date.now();
+    
+    if (wasOnline && !state.owncastOnline) {
+      // Stream just went offline
+      console.log('🔴 Owncast stream went offline');
+      handleStreamEnd();
+    } else if (!wasOnline && state.owncastOnline) {
+      // Stream came back online
+      console.log('🟢 Owncast stream is now online');
+      state.streamEndTime = null;
+    }
+    
+    return state.owncastOnline;
+  } catch (error) {
+    console.error('❌ Failed to check Owncast status:', error.message);
+    return false;
+  }
+}
+
+function handleStreamEnd() {
+  state.streamEndTime = Date.now();
+  console.log(`⏱️  Stream ended - will clear chunks in ${config.chunkRetentionAfterStreamEnd / 1000}s`);
+  
+  setTimeout(() => {
+    if (state.streamEndTime && (Date.now() - state.streamEndTime >= config.chunkRetentionAfterStreamEnd)) {
+      console.log('🧹 Clearing chunks after retention period');
+      clearStreamState();
+    }
+  }, config.chunkRetentionAfterStreamEnd);
+}
+
+function startOwncastMonitoring() {
+  // Initial check
+  checkOwncastStatus();
+  
+  // Poll every N seconds
+  state.statusCheckTimer = setInterval(() => {
+    checkOwncastStatus();
+  }, config.owncastStatusInterval);
+  
+  console.log(`✅ Owncast monitoring started (checking every ${config.owncastStatusInterval / 1000}s)`);
+}
 
 // Function to clear stream state (called on stream restart detection)
 function clearStreamState() {
@@ -129,34 +187,32 @@ app.use('/chunks', express.static(chunksDir, {
   },
 }));
 
-// Manifest endpoint - serves HLS playlist with R2 URLs
-app.get('/live/playlist.m3u8', (req, res) => {
-  const manifest = manifestGenerator.generateManifest();
-  const stats = manifestGenerator.getStats();
-  
-  res.set({
-    'Content-Type': 'application/vnd.apple.mpegurl',
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Access-Control-Allow-Origin': '*',
-  });
-  
-  if (config.enableDebug) {
-    console.log(`📋 Manifest requested - ${stats.chunkCount} chunks available`);
-  }
-  
-  res.send(manifest);
-});
+// Use R2 proxy for HLS optimization
+app.use('/', r2Proxy.getRouter());
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  const manifestStats = manifestGenerator.getStats();
   res.json({
     status: 'ok',
     torrents: state.activeTorrents.size,
     peers: Array.from(state.activeTorrents.values()).reduce((sum, t) => sum + t.numPeers, 0),
     chunks: state.chunkSequence,
-    manifestChunks: manifestStats.chunkCount,
     signaling: state.signalingWs?.readyState === WebSocket.OPEN ? 'connected' : 'disconnected',
+    owncast: {
+      online: state.owncastOnline,
+      lastCheck: state.lastOwncastCheck,
+      streamEndTime: state.streamEndTime,
+    },
+  });
+});
+
+// Owncast status endpoint
+app.get('/owncast/status', async (req, res) => {
+  const isOnline = await checkOwncastStatus();
+  res.json({
+    online: isOnline,
+    lastCheck: state.lastOwncastCheck,
+    streamEndTime: state.streamEndTime,
   });
 });
 
@@ -274,9 +330,11 @@ async function processChunk(filePath) {
   state.lastChunkTime = Date.now();
   resetStreamRestartTimer();
 
-  console.log(`\n📦 New chunk detected: ${filename} (${(stats.size / 1024).toFixed(2)} KB)`);
+  console.log(`\n📦 New chunk detected: ${filename} (${(stats.size / 1024).toFixed(2)} KB) - Processing order: ${state.chunkSequence}`);
 
-  const seq = state.chunkSequence;
+  // Extract chunk number from filename for proper ordering
+  const chunkNumberMatch = filename.match(/stream-\w+-(\d+)\.ts/);
+  const seq = chunkNumberMatch ? parseInt(chunkNumberMatch[1]) : state.chunkSequence;
   const timestamp = state.lastChunkTime;
 
   // 1. Upload to R2 FIRST (so we have the URL for signaling and manifest)
@@ -297,8 +355,8 @@ async function processChunk(filePath) {
       timestamp,
       seq,
     };
-    manifestGenerator.addChunk(chunkInfo);
-    console.log(`   📋 Added to manifest (${manifestGenerator.getChunkCount()} chunks total)`);
+    // Removed custom manifest - using Owncast's manifest instead
+    console.log(`   📋 Chunk processed and uploaded to R2`);
   } else {
     console.error(`   ❌ R2 upload failed for ${filename}`);
   }
@@ -406,6 +464,9 @@ watcher.on('ready', () => {
 
 // Connect to signaling server
 connectSignaling();
+
+// Start Owncast monitoring
+startOwncastMonitoring();
 
 // Graceful shutdown
 process.on('SIGINT', () => {

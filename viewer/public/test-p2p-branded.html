@@ -796,10 +796,8 @@
         return;
       }
 
-      // Use broadcaster's manifest with R2 URLs (reduces AWS EC2 load)
-      // For local testing: 'http://localhost:3000/live/playlist.m3u8'
-      // For production via Cloudflare tunnel: 'https://tv.danpage.uk/live/playlist.m3u8'
-      const url = 'https://tv.danpage.uk/live/playlist.m3u8';
+      // Use broadcaster's R2-optimized HLS URL (proxies Owncast + R2)
+      const url = 'https://tv.danpage.uk:3000/hls/stream.m3u8';
       
       log('🎬 Starting stream...', 'info');
       
@@ -819,9 +817,9 @@
         log('✅ P2P engine ready', 'success');
         
         const trackerUrls = [
-          'wss://tracker.openwebtorrent.com',
-          'wss://tracker.fastcast.nz',
-          'wss://tracker.files.fm:7073/announce'
+          'udp://tracker.qu.ax:6969/announce',
+          'udp://tracker.plx.im:6969/announce',
+          'udp://tracker.torrent.eu.org:451/announce'
         ];
 
         // Initialize tracker monitoring
@@ -961,11 +959,13 @@
         };
         
         hls = new HlsWithP2P({
-          liveSyncDuration: 5,
-          liveMaxLatencyDuration: 15,
-          lowLatencyMode: false,
-          maxBufferLength: 30,
-          maxMaxBufferLength: 60,
+          debug: false,
+          enableWorker: true,          // Enable web workers for better performance
+          liveSyncDuration: 15,        // Buffer 15 seconds ahead of live edge (was 5)
+          liveMaxLatencyDuration: 60,  // Allow up to 60 seconds behind live (was 15)
+          lowLatencyMode: true,        // Enable low latency mode like working version
+          maxBufferLength: 120,        // 2 minutes total buffer (was 30)
+          backBufferLength: 90,        // Back buffer like working version
           p2p: p2pConfig
         });
         

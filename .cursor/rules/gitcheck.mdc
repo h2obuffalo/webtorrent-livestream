@@ -1,0 +1,14 @@
+---
+alwaysApply: true
+
+Always check which branch we are on in git before committing any changes
+
+**CRITICAL**: Before committing, also verify deployment checklist:
+- Docker services rebuilt if code changed
+- Static files updated in all locations
+- Caches cleared (Cloudflare, browser, Docker)
+- Changes verified on live server
+- No console errors in browser
+
+See `.cursor/rules/deployment-checklist.md` for full details.
+---
