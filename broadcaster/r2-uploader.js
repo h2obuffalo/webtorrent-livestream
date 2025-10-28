@@ -1,4 +1,4 @@
-require('dotenv').config({ path: './.env' });
+require('dotenv').config({ path: '../.env' });
 const fs = require('fs');
 const { S3Client, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
@@ -32,7 +32,7 @@ async function verifyR2Connection() {
       }));
     } catch (err) {
       // 404 is fine, means we can connect but object doesn't exist
-      if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404 || err.message.includes('UnknownError')) {
+      if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) {
         return true;
       }
       throw err;
