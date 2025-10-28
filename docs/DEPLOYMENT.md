@@ -450,7 +450,40 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Add SSL with Let's Encrypt (Optional)
+### SSL Configuration Options
+
+#### Option 1: Cloudflare Origin Certificates (Recommended)
+
+**Benefits:**
+- ✅ **Better Cloudflare integration** - Optimized for Cloudflare's edge network
+- ✅ **Long-term validity** - 15-year certificate (vs 90 days for Let's Encrypt)
+- ✅ **No renewal needed** - Set and forget
+- ✅ **Better performance** - Optimized for Cloudflare tunnels and CDN
+- ✅ **Enhanced security** - Designed specifically for origin servers
+
+1. **Generate Origin Certificate** in Cloudflare Dashboard:
+   - Go to SSL/TLS → Origin Server
+   - Create Certificate → Let Cloudflare generate a private key
+   - Download both certificate and private key
+
+2. **Place certificates** in the project:
+   ```bash
+   # Certificates are already placed in:
+   # certificates/origin.pem (certificate)
+   # certificates/origin-key.pem (private key)
+   ```
+
+3. **Enable HTTPS** in your `.env` file:
+   ```bash
+   ENABLE_HTTPS=true
+   ```
+
+4. **Update Cloudflare settings**:
+   - Set SSL/TLS encryption mode to "Full (strict)"
+   - Enable "Always Use HTTPS"
+   - Configure Cloudflare Tunnels to use HTTPS origin
+
+#### Option 2: Let's Encrypt (Alternative)
 
 ```bash
 # Install Certbot

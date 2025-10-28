@@ -1,11 +1,17 @@
 require('dotenv').config({ path: '../.env' });
+const fs = require('fs');
+const https = require('https');
 const WebSocket = require('ws');
 
 // Configuration
 const config = {
   port: parseInt(process.env.WS_PORT) || 8080,
+  httpsPort: parseInt(process.env.WSS_PORT) || 8443,
   maxManifestChunks: 20, // Keep last N chunks in manifest
   enableDebug: process.env.ENABLE_DEBUG_LOGGING === 'true',
+  enableHttps: process.env.ENABLE_HTTPS === 'true',
+  certPath: process.env.CERT_PATH || '../certificates/origin.pem',
+  keyPath: process.env.KEY_PATH || '../certificates/origin-key.pem',
 };
 
 // State management
@@ -22,18 +28,50 @@ const state = {
 
 console.log('🚀 WebSocket Signaling Server Starting...\n');
 
-// Create WebSocket server
+// Load SSL certificates if HTTPS is enabled
+let sslOptions = null;
+if (config.enableHttps) {
+  try {
+    sslOptions = {
+      cert: fs.readFileSync(config.certPath),
+      key: fs.readFileSync(config.keyPath),
+    };
+    console.log('✅ SSL certificates loaded successfully');
+  } catch (error) {
+    console.error('❌ Failed to load SSL certificates:', error.message);
+    console.log('   Falling back to HTTP mode');
+    config.enableHttps = false;
+  }
+}
+
+// Create HTTP WebSocket server
 const wss = new WebSocket.Server({ port: config.port });
 
+// Create HTTPS WebSocket server if SSL is enabled
+let wssSecure = null;
+if (config.enableHttps && sslOptions) {
+  const httpsServer = https.createServer(sslOptions);
+  wssSecure = new WebSocket.Server({ server: httpsServer });
+  httpsServer.listen(config.httpsPort);
+}
+
 wss.on('listening', () => {
-  console.log(`✅ Signaling server listening on port ${config.port}`);
-  console.log(`   ws://localhost:${config.port}\n`);
-  console.log('Waiting for connections...\n');
-  console.log('='.repeat(80) + '\n');
+  console.log(`✅ HTTP Signaling server listening on port ${config.port}`);
+  console.log(`   ws://localhost:${config.port}`);
 });
 
-// Handle new connections
-wss.on('connection', (ws, req) => {
+if (wssSecure) {
+  wssSecure.on('listening', () => {
+    console.log(`✅ HTTPS Signaling server listening on port ${config.httpsPort}`);
+    console.log(`   wss://localhost:${config.httpsPort}`);
+  });
+}
+
+console.log('\nWaiting for connections...\n');
+console.log('='.repeat(80) + '\n');
+
+// Shared connection handler
+function handleConnection(ws, req) {
   const clientIp = req.socket.remoteAddress;
   const clientId = Math.random().toString(36).substring(7);
   
@@ -179,7 +217,13 @@ wss.on('connection', (ws, req) => {
   ws.on('error', (err) => {
     console.error(`❌ WebSocket error from ${clientId}:`, err.message);
   });
-});
+}
+
+// Apply connection handler to both servers
+wss.on('connection', handleConnection);
+if (wssSecure) {
+  wssSecure.on('connection', handleConnection);
+}
 
 // Periodic stats logging
 setInterval(() => {
@@ -227,7 +271,13 @@ process.on('SIGINT', () => {
     message: 'Server is shutting down',
   });
 
-  wss.clients.forEach((ws) => {
+  // Notify all clients on both servers
+  const allClients = [...wss.clients];
+  if (wssSecure) {
+    allClients.push(...wssSecure.clients);
+  }
+
+  allClients.forEach((ws) => {
     if (ws.readyState === WebSocket.OPEN) {
       try {
         ws.send(shutdownMsg);
@@ -238,7 +288,26 @@ process.on('SIGINT', () => {
     }
   });
 
-  wss.close(() => {
+  // Close both servers
+  const closePromises = [];
+  
+  closePromises.push(new Promise(resolve => {
+    wss.close(() => {
+      console.log('✅ HTTP WebSocket server closed');
+      resolve();
+    });
+  }));
+  
+  if (wssSecure) {
+    closePromises.push(new Promise(resolve => {
+      wssSecure.close(() => {
+        console.log('✅ HTTPS WebSocket server closed');
+        resolve();
+      });
+    }));
+  }
+  
+  Promise.all(closePromises).then(() => {
     console.log('✅ Shutdown complete');
     process.exit(0);
   });
@@ -266,7 +335,11 @@ wss.on('error', (err) => {
 
 console.log('✅ Signaling server ready');
 console.log('📊 Configuration:');
-console.log(`   - Port: ${config.port}`);
+console.log(`   - HTTP Port: ${config.port}`);
+if (config.enableHttps) {
+  console.log(`   - HTTPS Port: ${config.httpsPort}`);
+}
 console.log(`   - Max Manifest Chunks: ${config.maxManifestChunks}`);
-console.log(`   - Debug Logging: ${config.enableDebug}\n`);
+console.log(`   - Debug Logging: ${config.enableDebug}`);
+console.log(`   - HTTPS: ${config.enableHttps ? 'Enabled' : 'Disabled'}\n`);
 

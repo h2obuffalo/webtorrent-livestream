@@ -9,6 +9,7 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+      - "3443:3443"  # HTTPS port
     environment:
       - NODE_ENV=production
       - HTTP_PORT=3000
@@ -26,11 +27,18 @@ services:
       - OWNCAST_API_URL=${OWNCAST_API_URL:-http://host.docker.internal:8080}
       - OWNCAST_STATUS_CHECK_INTERVAL=${OWNCAST_STATUS_CHECK_INTERVAL:-10000}
       - CHUNK_RETENTION_AFTER_END=${CHUNK_RETENTION_AFTER_END:-300000}
+      - ENABLE_HTTPS=${ENABLE_HTTPS:-false}
+      - HTTPS_PORT=${HTTPS_PORT:-3443}
+      - SIGNALING_SECURE_URL=${SIGNALING_SECURE_URL:-wss://signaling:8443}
+      - CERT_PATH=/app/certificates/origin.pem
+      - KEY_PATH=/app/certificates/origin-key.pem
     volumes:
       # Mount Owncast HLS output directory
       - owncast-data:/data/hls:ro
       # Optional: mount for logs
       - ./logs/broadcaster:/app/logs
+      # Mount SSL certificates
+      - ./certificates:/app/certificates:ro
     networks:
       - webtorrent-network
     healthcheck:
@@ -47,10 +55,18 @@ services:
     container_name: webtorrent-signaling
     restart: unless-stopped
     ports:
-      - "8081:8080"
+      - "8081:8080"  # HTTP WebSocket
+      - "8443:8443"  # HTTPS WebSocket
     environment:
       - NODE_ENV=production
       - WS_PORT=8080
+      - WSS_PORT=8443
+      - ENABLE_HTTPS=${ENABLE_HTTPS:-false}
+      - CERT_PATH=/app/certificates/origin.pem
+      - KEY_PATH=/app/certificates/origin-key.pem
+    volumes:
+      # Mount SSL certificates
+      - ./certificates:/app/certificates:ro
     networks:
       - webtorrent-network
     healthcheck:
