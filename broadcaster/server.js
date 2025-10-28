@@ -7,7 +7,7 @@ const WebTorrent = require('webtorrent');
 const chokidar = require('chokidar');
 const WebSocket = require('ws');
 const { uploadToR2, verifyR2Connection } = require('./r2-uploader');
-const R2Proxy = require('./r2-proxy');
+const SimpleManifestGenerator = require('./simple-manifest-generator');
 
 // Configuration
 const config = {
@@ -40,10 +40,10 @@ const state = {
   statusCheckTimer: null,
 };
 
-// Initialize R2 proxy for HLS optimization
-const r2Proxy = new R2Proxy({
-  owncastUrl: 'http://localhost:8080',
-  r2BaseUrl: 'https://pub-81f1de5a4fc945bdaac36449630b5685.r2.dev'
+// Initialize simple manifest generator for R2 optimization
+const manifestGenerator = new SimpleManifestGenerator({
+  maxChunks: 120, // 10 minutes buffer (more than Owncast's ~10 chunks)
+  targetDuration: 6
 });
 
 // Check Owncast status
@@ -187,8 +187,23 @@ app.use('/chunks', express.static(chunksDir, {
   },
 }));
 
-// Use R2 proxy for HLS optimization
-app.use('/', r2Proxy.getRouter());
+// Manifest endpoint - serves HLS playlist with R2 URLs
+app.get('/live/playlist.m3u8', (req, res) => {
+  const manifest = manifestGenerator.generateManifest();
+  const stats = manifestGenerator.getStats();
+  
+  res.set({
+    'Content-Type': 'application/vnd.apple.mpegurl',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Access-Control-Allow-Origin': '*',
+  });
+  
+  if (config.enableDebug) {
+    console.log(`📋 Manifest requested - ${stats.chunkCount} chunks available`);
+  }
+  
+  res.send(manifest);
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -197,6 +212,7 @@ app.get('/health', (req, res) => {
     torrents: state.activeTorrents.size,
     peers: Array.from(state.activeTorrents.values()).reduce((sum, t) => sum + t.numPeers, 0),
     chunks: state.chunkSequence,
+    manifestChunks: manifestGenerator.getChunkCount(),
     signaling: state.signalingWs?.readyState === WebSocket.OPEN ? 'connected' : 'disconnected',
     owncast: {
       online: state.owncastOnline,
@@ -355,7 +371,8 @@ async function processChunk(filePath) {
       timestamp,
       seq,
     };
-    // Removed custom manifest - using Owncast's manifest instead
+    // Add chunk to manifest generator (uses R2 URL for HTTP fallback)
+    manifestGenerator.addChunk(chunkInfo);
     console.log(`   📋 Chunk processed and uploaded to R2`);
   } else {
     console.error(`   ❌ R2 upload failed for ${filename}`);

@@ -796,8 +796,8 @@
         return;
       }
 
-      // Use broadcaster's R2-optimized HLS URL (proxies Owncast + R2)
-      const url = 'https://tv.danpage.uk:3000/hls/stream.m3u8';
+      // Use broadcaster's custom manifest with R2 URLs (clean implementation)
+      const url = 'https://tv.danpage.uk:3000/live/playlist.m3u8';
       
       log('🎬 Starting stream...', 'info');
       
