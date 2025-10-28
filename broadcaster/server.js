@@ -1,8 +1,9 @@
-require('dotenv').config({ path: '../.env' });
+require('dotenv').config({ path: './.env' });
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const https = require('https');
 const WebTorrent = require('webtorrent');
 const chokidar = require('chokidar');
 const WebSocket = require('ws');
@@ -13,7 +14,9 @@ const SimpleManifestGenerator = require('./simple-manifest-generator');
 const config = {
   owncastPath: process.env.OWNCAST_DATA_PATH || '../owncast/data/hls/0',
   httpPort: parseInt(process.env.HTTP_PORT) || 3000,
+  httpsPort: parseInt(process.env.HTTPS_PORT) || 3443,
   signalingUrl: process.env.SIGNALING_URL || 'ws://localhost:8080',
+  signalingSecureUrl: process.env.SIGNALING_SECURE_URL || 'wss://localhost:8080',
   trackers: (process.env.TRACKER_URLS || 'udp://tracker.qu.ax:6969/announce,udp://tracker.plx.im:6969/announce,udp://tracker.torrent.eu.org:451/announce').split(','),
   retentionMinutes: parseInt(process.env.CHUNK_RETENTION_MINUTES) || 15,
   r2Path: process.env.R2_UPLOAD_PATH || 'live/',
@@ -21,6 +24,9 @@ const config = {
   owncastApiUrl: process.env.OWNCAST_API_URL || 'http://localhost:8080',
   owncastStatusInterval: parseInt(process.env.OWNCAST_STATUS_CHECK_INTERVAL) || 10000, // 10s
   chunkRetentionAfterStreamEnd: parseInt(process.env.CHUNK_RETENTION_AFTER_END) || 300000, // 5 minutes
+  enableHttps: process.env.ENABLE_HTTPS === 'true',
+  certPath: process.env.CERT_PATH || '../certificates/origin.pem',
+  keyPath: process.env.KEY_PATH || '../certificates/origin-key.pem',
 };
 
 // State management
@@ -45,6 +51,22 @@ const manifestGenerator = new SimpleManifestGenerator({
   maxChunks: 120, // 10 minutes buffer (more than Owncast's ~10 chunks)
   targetDuration: 6
 });
+
+// Load SSL certificates if HTTPS is enabled
+let sslOptions = null;
+if (config.enableHttps) {
+  try {
+    sslOptions = {
+      cert: fs.readFileSync(config.certPath),
+      key: fs.readFileSync(config.keyPath),
+    };
+    console.log('✅ SSL certificates loaded successfully');
+  } catch (error) {
+    console.error('❌ Failed to load SSL certificates:', error.message);
+    console.log('   Falling back to HTTP mode');
+    config.enableHttps = false;
+  }
+}
 
 // Check Owncast status
 async function checkOwncastStatus() {
@@ -250,10 +272,23 @@ app.get('/metrics', (req, res) => {
   });
 });
 
-const server = app.listen(config.httpPort, () => {
+// Create HTTP server
+const httpServer = app.listen(config.httpPort, () => {
   console.log(`✅ HTTP server listening on port ${config.httpPort}`);
   console.log(`   Serving chunks from: ${chunksDir}\n`);
 });
+
+// Create HTTPS server if SSL is enabled
+let httpsServer = null;
+if (config.enableHttps && sslOptions) {
+  httpsServer = https.createServer(sslOptions, app);
+  httpsServer.listen(config.httpsPort, () => {
+    console.log(`✅ HTTPS server listening on port ${config.httpsPort}`);
+    console.log(`   Secure chunks from: ${chunksDir}\n`);
+  });
+}
+
+const server = httpsServer || httpServer;
 
 // Connect to signaling server
 function connectSignaling() {
@@ -262,10 +297,11 @@ function connectSignaling() {
   }
 
   try {
-    state.signalingWs = new WebSocket(config.signalingUrl);
+    const signalingUrl = config.enableHttps ? config.signalingSecureUrl : config.signalingUrl;
+    state.signalingWs = new WebSocket(signalingUrl);
 
     state.signalingWs.on('open', () => {
-      console.log('✅ Connected to signaling server:', config.signalingUrl);
+      console.log('✅ Connected to signaling server:', signalingUrl);
     });
 
     state.signalingWs.on('error', (err) => {
@@ -502,8 +538,28 @@ process.on('SIGINT', () => {
     state.signalingWs.close();
   }
   
-  // Close HTTP server
-  server.close(() => {
+  // Close servers
+  const closePromises = [];
+  
+  if (httpServer) {
+    closePromises.push(new Promise(resolve => {
+      httpServer.close(() => {
+        console.log('✅ HTTP server closed');
+        resolve();
+      });
+    }));
+  }
+  
+  if (httpsServer) {
+    closePromises.push(new Promise(resolve => {
+      httpsServer.close(() => {
+        console.log('✅ HTTPS server closed');
+        resolve();
+      });
+    }));
+  }
+  
+  Promise.all(closePromises).then(() => {
     console.log('✅ Shutdown complete');
     process.exit(0);
   });
@@ -521,11 +577,15 @@ process.on('unhandledRejection', (reason, promise) => {
 console.log('✅ Broadcaster service ready\n');
 console.log('📊 Service Status:');
 console.log(`   - HTTP Server: http://localhost:${config.httpPort}`);
+if (config.enableHttps) {
+  console.log(`   - HTTPS Server: https://localhost:${config.httpsPort}`);
+}
 console.log(`   - Health Check: http://localhost:${config.httpPort}/health`);
 console.log(`   - Metrics: http://localhost:${config.httpPort}/metrics`);
-console.log(`   - Signaling: ${config.signalingUrl}`);
+console.log(`   - Signaling: ${config.enableHttps ? config.signalingSecureUrl : config.signalingUrl}`);
 console.log(`   - Retention: ${config.retentionMinutes} minutes`);
-console.log(`   - Trackers: ${config.trackers.length} configured\n`);
+console.log(`   - Trackers: ${config.trackers.length} configured`);
+console.log(`   - HTTPS: ${config.enableHttps ? 'Enabled' : 'Disabled'}\n`);
 console.log('Waiting for Owncast to create HLS segments...\n');
 console.log('='.repeat(80) + '\n');
 
