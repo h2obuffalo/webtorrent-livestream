@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lineup Admin - Artist & Schedule Editor</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; color: #111; }
+    h1, h2, h3 { margin: 0 0 12px; }
+    section { margin-bottom: 24px; }
+    label { display: block; margin: 8px 0 4px; font-weight: 600; }
+    input[type="text"], input[type="url"], input[type="datetime-local"], textarea, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+    textarea { min-height: 72px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .btn { display: inline-block; padding: 8px 12px; border: 1px solid #444; border-radius: 6px; background: #f6f6f6; cursor: pointer; }
+    .btn.primary { background: #111; color: white; border-color: #111; }
+    .btn.warn { background: #b91c1c; color: white; border-color: #991b1b; }
+    .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .list { border: 1px solid #ddd; border-radius: 8px; padding: 12px; max-height: 320px; overflow: auto; }
+    .item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .item:last-child { border-bottom: none; }
+    .muted { color: #555; font-size: 12px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid #ccc; margin-right: 6px; font-size: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .danger { color: #b91c1c; }
+    .success { color: #047857; }
+    .spacer { height: 8px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Lineup Admin</h1>
+  <p class="muted">Edit `assets/lineup-2025.json` data, manage artists, stages and set times. Export JSON for the app bundle or send to a webhook.</p>
+
+  <section class="card">
+    <h2>Data Source</h2>
+    <div class="toolbar">
+      <input type="file" id="fileInput" accept="application/json" />
+      <button class="btn" id="loadSample">Load current app JSON (URL)</button>
+      <input type="text" id="jsonUrl" placeholder="https://example.com/lineup-2025.json" style="flex:1" />
+    </div>
+    <div class="spacer"></div>
+    <div class="toolbar">
+      <button class="btn" id="exportJson">Export JSON</button>
+      <button class="btn" id="copyJson">Copy JSON</button>
+    </div>
+    <pre id="status" class="muted"></pre>
+  </section>
+
+  <section class="card">
+    <h2>Stages</h2>
+    <div class="toolbar">
+      <input type="text" id="stageName" placeholder="Add stage name" />
+      <button class="btn" id="addStage">Add Stage</button>
+    </div>
+    <div class="list" id="stageList"></div>
+  </section>
+
+  <section class="card">
+    <h2>Artists</h2>
+    <div class="row">
+      <div>
+        <label for="artistName">Name</label>
+        <input type="text" id="artistName" placeholder="Artist name" />
+      </div>
+      <div>
+        <label for="artistId">ID</label>
+        <input type="text" id="artistId" placeholder="Unique integer ID" />
+      </div>
+    </div>
+    <label for="artistPhoto">Photo filename (in assets/lineup-photos)</label>
+    <input type="text" id="artistPhoto" placeholder="artist-name.jpg" />
+    <div class="row">
+      <div>
+        <label for="artistWebsite">Website</label>
+        <input type="url" id="artistWebsite" placeholder="https://..." />
+      </div>
+      <div>
+        <label for="artistBandcamp">Bandcamp</label>
+        <input type="url" id="artistBandcamp" placeholder="https://..." />
+      </div>
+    </div>
+    <label for="artistBlurb">Blurb</label>
+    <textarea id="artistBlurb" placeholder="Short description"></textarea>
+
+    <h3>Stages for Artist</h3>
+    <div id="artistStages" class="toolbar"></div>
+
+    <h3>Set Times</h3>
+    <div id="setTimes"></div>
+    <div class="toolbar">
+      <button class="btn" id="addSetTime">Add Set Time</button>
+    </div>
+
+    <div class="toolbar" style="margin-top:12px">
+      <button class="btn primary" id="saveArtist">Save/Update Artist</button>
+      <button class="btn warn" id="deleteArtist">Delete Artist</button>
+      <span class="muted" id="artistFormStatus"></span>
+    </div>
+
+    <h3>Artist List</h3>
+    <input type="text" id="artistSearch" placeholder="Search by name or stage" />
+    <div class="list" id="artistList"></div>
+  </section>
+
+  <section class="card">
+    <h2>Webhook</h2>
+    <p class="muted">Optional: send the current JSON payload to a webhook URL (for future live updates to clients).</p>
+    <div class="toolbar">
+      <input type="text" id="webhookUrl" placeholder="https://your-webhook-endpoint" style="flex:1" />
+      <button class="btn" id="sendWebhook">POST JSON</button>
+      <span id="webhookStatus" class="muted"></span>
+    </div>
+  </section>
+
+  <script>
+    const state = {
+      artists: [],
+      stages: [],
+      selectedArtistId: null,
+    };
+
+    const els = {
+      status: document.getElementById('status'),
+      fileInput: document.getElementById('fileInput'),
+      jsonUrl: document.getElementById('jsonUrl'),
+      loadSample: document.getElementById('loadSample'),
+      exportJson: document.getElementById('exportJson'),
+      copyJson: document.getElementById('copyJson'),
+      stageName: document.getElementById('stageName'),
+      addStage: document.getElementById('addStage'),
+      stageList: document.getElementById('stageList'),
+      artistId: document.getElementById('artistId'),
+      artistName: document.getElementById('artistName'),
+      artistPhoto: document.getElementById('artistPhoto'),
+      artistWebsite: document.getElementById('artistWebsite'),
+      artistBandcamp: document.getElementById('artistBandcamp'),
+      artistBlurb: document.getElementById('artistBlurb'),
+      artistStages: document.getElementById('artistStages'),
+      setTimes: document.getElementById('setTimes'),
+      addSetTime: document.getElementById('addSetTime'),
+      saveArtist: document.getElementById('saveArtist'),
+      deleteArtist: document.getElementById('deleteArtist'),
+      artistList: document.getElementById('artistList'),
+      artistSearch: document.getElementById('artistSearch'),
+      artistFormStatus: document.getElementById('artistFormStatus'),
+      webhookUrl: document.getElementById('webhookUrl'),
+      sendWebhook: document.getElementById('sendWebhook'),
+      webhookStatus: document.getElementById('webhookStatus'),
+    };
+
+    function setStatus(msg, isError=false) {
+      els.status.textContent = msg || '';
+      els.status.style.color = isError ? '#b91c1c' : '#555';
+    }
+
+    function renderStages() {
+      const container = els.stageList;
+      container.innerHTML = '';
+      state.stages.sort((a,b)=>a.localeCompare(b));
+      state.stages.forEach((s, idx) => {
+        const row = document.createElement('div');
+        row.className = 'item';
+        row.innerHTML = `<div><span class="pill">${idx+1}</span> ${s}</div>`;
+        const del = document.createElement('button');
+        del.className = 'btn warn';
+        del.textContent = 'Remove';
+        del.onclick = () => {
+          state.stages = state.stages.filter(x => x !== s);
+          // Remove stage from artists
+          state.artists.forEach(a => a.stages = (a.stages || []).filter(x => x !== s));
+          renderStages();
+          renderArtistStagesChooser();
+          renderArtistList();
+        };
+        row.appendChild(del);
+        container.appendChild(row);
+      });
+    }
+
+    function renderArtistStagesChooser() {
+      const c = els.artistStages;
+      c.innerHTML = '';
+      state.stages.forEach(stage => {
+        const id = `stage_${stage.replace(/[^a-z0-9]/gi,'_')}`;
+        const w = document.createElement('label');
+        w.style.display = 'inline-flex';
+        w.style.gap = '6px';
+        w.style.marginRight = '12px';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = id;
+        cb.checked = (getFormArtist().stages || []).includes(stage);
+        cb.onchange = () => {
+          const a = getFormArtist();
+          if (cb.checked) {
+            a.stages = Array.from(new Set([...(a.stages||[]), stage]));
+          } else {
+            a.stages = (a.stages||[]).filter(s => s !== stage);
+          }
+          setFormArtist(a);
+        };
+        w.appendChild(cb);
+        const t = document.createElement('span');
+        t.textContent = stage;
+        w.appendChild(t);
+        c.appendChild(w);
+      });
+    }
+
+    function addSetTimeRow(setTime) {
+      const idx = els.setTimes.children.length;
+      const row = document.createElement('div');
+      row.className = 'grid-3';
+
+      const start = document.createElement('input');
+      start.type = 'datetime-local';
+      start.value = setTime?.start ? toLocalInput(setTime.start) : '';
+      const end = document.createElement('input');
+      end.type = 'datetime-local';
+      end.value = setTime?.end ? toLocalInput(setTime.end) : '';
+      const stage = document.createElement('select');
+      state.stages.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s; o.textContent = s; stage.appendChild(o);
+      });
+      stage.value = setTime?.stage || (state.stages[0] || '');
+
+      const row2 = document.createElement('div');
+      row2.className = 'grid-2';
+      const status = document.createElement('select');
+      ['scheduled','live','completed','cancelled'].forEach(st => {
+        const o = document.createElement('option'); o.value = st; o.textContent = st; status.appendChild(o);
+      });
+      status.value = setTime?.status || 'scheduled';
+
+      const del = document.createElement('button');
+      del.className = 'btn warn';
+      del.textContent = 'Remove';
+      del.onclick = () => { row.remove(); };
+
+      row.appendChild(start);
+      row.appendChild(end);
+      row.appendChild(stage);
+      row2.appendChild(status);
+      row2.appendChild(del);
+      els.setTimes.appendChild(row);
+      els.setTimes.appendChild(row2);
+    }
+
+    function clearSetTimes() { els.setTimes.innerHTML = ''; }
+
+    function getFormArtist() {
+      return {
+        id: parseInt(els.artistId.value || '0', 10),
+        name: els.artistName.value.trim(),
+        photo: els.artistPhoto.value.trim(),
+        website: els.artistWebsite.value.trim() || null,
+        bandcamp: els.artistBandcamp.value.trim() || null,
+        blurb: els.artistBlurb.value.trim() || null,
+        stages: Array.from(els.artistStages.querySelectorAll('input[type="checkbox"]:checked')).map(x => x.nextSibling.textContent),
+        setTimes: readSetTimesFromForm(),
+      };
+    }
+
+    function readSetTimesFromForm() {
+      const nodes = Array.from(els.setTimes.children);
+      const rows = [];
+      for (let i = 0; i < nodes.length; i += 2) {
+        const tRow = nodes[i];
+        const sRow = nodes[i+1];
+        if (!tRow || !sRow) continue;
+        const [start, end, stage] = tRow.querySelectorAll('input, select');
+        const [status] = sRow.querySelectorAll('select');
+        if (!start.value || !end.value) continue;
+        rows.push({
+          start: toISO(start.value),
+          end: toISO(end.value),
+          stage: stage.value,
+          status: status.value,
+        });
+      }
+      return rows;
+    }
+
+    function setFormArtist(a) {
+      els.artistId.value = a.id || '';
+      els.artistName.value = a.name || '';
+      els.artistPhoto.value = a.photo || '';
+      els.artistWebsite.value = a.website || '';
+      els.artistBandcamp.value = a.bandcamp || '';
+      els.artistBlurb.value = a.blurb || '';
+      renderArtistStagesChooser();
+      clearSetTimes();
+      (a.setTimes || []).forEach(st => addSetTimeRow(st));
+    }
+
+    function renderArtistList() {
+      const q = (els.artistSearch.value || '').toLowerCase();
+      const c = els.artistList;
+      c.innerHTML = '';
+      const artists = state.artists
+        .filter(a => !q || a.name.toLowerCase().includes(q) || (a.stages||[]).some(s => s.toLowerCase().includes(q)))
+        .sort((a,b)=>a.name.localeCompare(b.name));
+      artists.forEach(a => {
+        const row = document.createElement('div');
+        row.className = 'item';
+        const left = document.createElement('div');
+        left.innerHTML = `<strong>${a.name}</strong> <span class="muted">#${a.id}</span><div>${(a.stages||[]).map(s=>`<span class='pill'>${s}</span>`).join('')}</div>`;
+        const actions = document.createElement('div');
+        const edit = document.createElement('button'); edit.className = 'btn'; edit.textContent = 'Edit';
+        edit.onclick = () => { state.selectedArtistId = a.id; setFormArtist(a); els.artistFormStatus.textContent = ''; };
+        const remove = document.createElement('button'); remove.className = 'btn warn'; remove.textContent = 'Delete';
+        remove.onclick = () => { state.artists = state.artists.filter(x => x.id !== a.id); renderArtistList(); };
+        actions.appendChild(edit); actions.appendChild(remove);
+        row.appendChild(left); row.appendChild(actions);
+        c.appendChild(row);
+      });
+    }
+
+    // Utilities
+    function toISO(localValue) {
+      // local datetime-local -> ISO UTC
+      const d = new Date(localValue);
+      return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString();
+    }
+    function toLocalInput(iso) {
+      const d = new Date(iso);
+      const pad = n => String(n).padStart(2,'0');
+      const yyyy = d.getFullYear();
+      const mm = pad(d.getMonth()+1);
+      const dd = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const mi = pad(d.getMinutes());
+      return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+    }
+
+    // Events
+    els.addStage.onclick = () => {
+      const name = els.stageName.value.trim();
+      if (!name) return;
+      if (!state.stages.includes(name)) state.stages.push(name);
+      els.stageName.value = '';
+      renderStages();
+      renderArtistStagesChooser();
+    };
+
+    els.addSetTime.onclick = () => addSetTimeRow();
+
+    els.saveArtist.onclick = () => {
+      const a = getFormArtist();
+      if (!a.id || !a.name) { els.artistFormStatus.textContent = 'ID and Name are required'; els.artistFormStatus.className = 'muted danger'; return; }
+      const idx = state.artists.findIndex(x => x.id === a.id);
+      if (idx >= 0) state.artists[idx] = a; else state.artists.push(a);
+      els.artistFormStatus.textContent = 'Saved'; els.artistFormStatus.className = 'muted success';
+      renderArtistList();
+    };
+
+    els.deleteArtist.onclick = () => {
+      const id = parseInt(els.artistId.value || '0', 10);
+      if (!id) return;
+      state.artists = state.artists.filter(a => a.id !== id);
+      setFormArtist({});
+      renderArtistList();
+    };
+
+    els.artistSearch.oninput = renderArtistList;
+
+    els.fileInput.onchange = async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      try {
+        const text = await f.text();
+        const data = JSON.parse(text);
+        loadDataArray(data);
+        setStatus('Loaded from file');
+      } catch (err) {
+        setStatus('Invalid JSON file', true);
+      }
+    };
+
+    els.loadSample.onclick = async () => {
+      const url = els.jsonUrl.value.trim() || '/assets/lineup-2025.json';
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const data = await res.json();
+        loadDataArray(data);
+        setStatus('Loaded from URL: '+url);
+      } catch (e) {
+        setStatus('Failed to load URL', true);
+      }
+    };
+
+    function loadDataArray(arr) {
+      state.artists = Array.isArray(arr) ? arr : [];
+      // infer stages from artists
+      const st = new Set();
+      state.artists.forEach(a => (a.stages||[]).forEach(s => st.add(s)));
+      state.stages = Array.from(st);
+      renderStages();
+      renderArtistStagesChooser();
+      renderArtistList();
+      setFormArtist({});
+    }
+
+    els.exportJson.onclick = () => {
+      const payload = JSON.stringify(state.artists, null, 2);
+      const blob = new Blob([payload], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'lineup-2025.json';
+      a.click();
+    };
+
+    els.copyJson.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(state.artists, null, 2));
+        setStatus('JSON copied to clipboard');
+      } catch { setStatus('Clipboard not available', true); }
+    };
+
+    els.sendWebhook.onclick = async () => {
+      const url = els.webhookUrl.value.trim();
+      if (!url) { els.webhookStatus.textContent = 'Enter a webhook URL'; els.webhookStatus.className = 'muted danger'; return; }
+      els.webhookStatus.textContent = 'Sending...'; els.webhookStatus.className = 'muted';
+      try {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state.artists) });
+        els.webhookStatus.textContent = res.ok ? 'Delivered' : ('Failed: '+res.status);
+        els.webhookStatus.className = res.ok ? 'muted success' : 'muted danger';
+      } catch (e) {
+        els.webhookStatus.textContent = 'Network error'; els.webhookStatus.className = 'muted danger';
+      }
+    };
+
+    // Init
+    renderStages();
+    renderArtistStagesChooser();
+    renderArtistList();
+  </script>
+</body>
+</html>
+
+
