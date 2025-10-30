@@ -703,6 +703,73 @@ app.use((req, res, next) => {
 
 ---
 
+## 🏗️ Flutter Code Organization
+
+### Screen/Widget Size Guidelines
+
+**IMPORTANT**: When screens or widgets exceed certain sizes, they MUST be broken down into components.
+
+#### Size Limits:
+- **Screens**: Maximum 500 lines of code before component extraction is required
+- **Widgets**: Maximum 300 lines of code before sub-component extraction is required
+- **Complex widgets** (video players, complex forms): Consider extraction at 250 lines
+
+#### When to Extract Components:
+
+✅ **DO extract when:**
+- A screen exceeds 500 lines
+- A section has clear, independent functionality (e.g., "search bar", "video controls", "form validation")
+- A widget has repeated UI patterns
+- A widget handles multiple responsibilities (SRP violation)
+- The component can be reused in multiple places
+
+❌ **DON'T over-extract when:**
+- The code is already well-organized and readable
+- Extraction would make the code harder to understand
+- The component is only used in one place and never will be reused
+- The refactoring introduces new bugs or complexity
+
+#### Refactoring Process:
+
+1. **Test first**: Ensure current functionality works perfectly
+2. **Identify logical sections**: Find natural boundaries in the code
+3. **Create new widget files**: One file per extracted component
+4. **Update imports**: Replace inline code with widget imports
+5. **Test again**: Verify all functionality still works
+6. **Commit only if working**: Don't commit broken refactors
+
+#### Example:
+
+```dart
+// ❌ BAD - 800+ line screen trying to do everything
+class VideoPlayerScreen extends StatefulWidget {
+  // 800 lines of mixed concerns: video logic, UI controls, animations, connection handling
+}
+
+// ✅ GOOD - Well-organized with extracted components
+class VideoPlayerScreen extends StatefulWidget {
+  // 300 lines of state management and coordination
+  
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        VideoDisplayWidget(),      // Extracted component
+        VideoControlsOverlay(),     // Extracted component  
+        ConnectionStatusWidget(),   // Extracted component
+        CastControlWidget(),        // Extracted component
+      ],
+    );
+  }
+}
+```
+
+#### Component File Naming:
+- Use descriptive, specific names: `VideoControlsOverlay`, `ConnectionStatusIndicator`
+- Not generic: `CustomWidget`, `MyComponent`, `HelperWidget`
+- Match the component's purpose
+
+---
+
 ## 📝 Git Workflow & Commit Standards
 
 ### Commit Message Format:
