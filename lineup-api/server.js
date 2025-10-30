@@ -12,11 +12,7 @@ const PORT = process.env.PORT || 3002;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Routes
-app.use('/lineup', lineupRoutes);
-app.use('/lineup/admin', adminRoutes);
-
-// Health check
+// Health check (before /lineup routes so /health works directly)
 app.get('/health', async (req, res) => {
   try {
     await db.query('SELECT 1');
@@ -25,6 +21,10 @@ app.get('/health', async (req, res) => {
     res.status(500).json({ status: 'error', error: error.message });
   }
 });
+
+// Routes
+app.use('/lineup', lineupRoutes);
+app.use('/lineup/admin', adminRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

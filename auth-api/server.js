@@ -13,11 +13,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/auth', validateRoutes);
-app.use('/auth/admin', adminRoutes);
-
-// Health check
+// Health check (before /auth routes so /health works directly)
 app.get('/health', async (req, res) => {
   try {
     await db.query('SELECT 1');
@@ -26,6 +22,10 @@ app.get('/health', async (req, res) => {
     res.status(500).json({ status: 'error', error: error.message });
   }
 });
+
+// Routes
+app.use('/auth', validateRoutes);
+app.use('/auth/admin', adminRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {
