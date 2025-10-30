@@ -88,6 +88,58 @@ services:
   #   networks:
   #     - webtorrent-network
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: webtorrent-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-webtorrent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-webtorrent}
+    ports:
+      - "127.0.0.1:5432:5432"  # localhost only
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - webtorrent-network
+
+  auth-api:
+    build:
+      context: ./auth-api
+      dockerfile: Dockerfile
+    container_name: webtorrent-auth-api
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-webtorrent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-webtorrent}
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_DISABLED=${AUTH_DISABLED:-false}
+    depends_on:
+      - postgres
+    networks:
+      - webtorrent-network
+
+  lineup-api:
+    build:
+      context: ./lineup-api
+      dockerfile: Dockerfile
+    container_name: webtorrent-lineup-api
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-webtorrent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-webtorrent}
+    depends_on:
+      - postgres
+    networks:
+      - webtorrent-network
+
 volumes:
   owncast-data:
     driver: local
@@ -95,6 +147,7 @@ volumes:
       type: none
       device: /Users/ran/owncast/data/hls
       o: bind
+  postgres-data:
 
 networks:
   webtorrent-network:
