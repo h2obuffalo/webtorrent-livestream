@@ -2,53 +2,64 @@ module.exports = {
   apps: [
     {
       name: 'owncast',
-      cwd: '/home/ubuntu/owncast',
-      script: './owncast',
-      interpreter: 'none',
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: '1G',
+      script: '/usr/local/bin/owncast',
+      cwd: '/home/ubuntu/webtorrent-livestream',
+      env_file: './.env',
       env: {
-        NODE_ENV: 'production',
+        NODE_ENV: 'production'
       },
-      error_file: '/home/ubuntu/.pm2/logs/owncast-error.log',
-      out_file: '/home/ubuntu/.pm2/logs/owncast-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      merge_logs: true,
-    },
-    {
-      name: 'broadcaster',
-      cwd: '/home/ubuntu/webtorrent-livestream/broadcaster',
-      script: 'server.js',
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: '500M',
-      env: {
-        NODE_ENV: 'production',
-      },
-      error_file: '/home/ubuntu/.pm2/logs/broadcaster-error.log',
-      out_file: '/home/ubuntu/.pm2/logs/broadcaster-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      merge_logs: true,
+      restart_delay: 5000,
+      max_restarts: 10,
+      min_uptime: '10s'
     },
     {
       name: 'signaling',
-      cwd: '/home/ubuntu/webtorrent-livestream/signaling',
-      script: 'server.js',
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: '256M',
+      script: 'signaling/server.js',
+      cwd: '/home/ubuntu/webtorrent-livestream',
+      env_file: './.env',
       env: {
-        NODE_ENV: 'production',
+        NODE_ENV: 'production'
       },
-      error_file: '/home/ubuntu/.pm2/logs/signaling-error.log',
-      out_file: '/home/ubuntu/.pm2/logs/signaling-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      merge_logs: true,
+      restart_delay: 5000,
+      max_restarts: 10,
+      min_uptime: '10s'
     },
-  ],
+    {
+      name: 'broadcaster',
+      script: 'broadcaster/server.js',
+      cwd: '/home/ubuntu/webtorrent-livestream',
+      env_file: './.env',
+      env: {
+        NODE_ENV: 'production'
+      },
+      restart_delay: 5000,
+      max_restarts: 10,
+      min_uptime: '10s'
+    },
+    {
+      name: 'tunnel',
+      script: 'cloudflared',
+      args: 'tunnel --config /home/ubuntu/.cloudflared/config.yml run',
+      cwd: '/home/ubuntu/webtorrent-livestream',
+      env_file: './.env',
+      env: {
+        NODE_ENV: 'production'
+      },
+      restart_delay: 5000,
+      max_restarts: 10,
+      min_uptime: '10s'
+    },
+    {
+      name: 'viewer',
+      script: 'viewer/server.js',
+      cwd: '/home/ubuntu/webtorrent-livestream',
+      env_file: './.env',
+      env: {
+        NODE_ENV: 'production'
+      },
+      restart_delay: 5000,
+      max_restarts: 10,
+      min_uptime: '10s'
+    }
+  ]
 };
-
