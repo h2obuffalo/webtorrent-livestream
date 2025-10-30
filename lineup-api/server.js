@@ -12,9 +12,9 @@ const PORT = process.env.PORT || 3002;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Routes (no prefix - tunnel handles /lineup)
-app.use('/', lineupRoutes);
-app.use('/admin', adminRoutes);
+// Routes
+app.use('/lineup', lineupRoutes);
+app.use('/lineup/admin', adminRoutes);
 
 // Health check
 app.get('/health', async (req, res) => {

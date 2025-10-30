@@ -13,9 +13,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes (no prefix - tunnel handles /auth)
-app.use('/', validateRoutes);
-app.use('/admin', adminRoutes);
+// Routes
+app.use('/auth', validateRoutes);
+app.use('/auth/admin', adminRoutes);
 
 // Health check
 app.get('/health', async (req, res) => {
